@@ -44,7 +44,7 @@ class ProtoModel(nn.Module):
         self.encoder_layer2 = nn.Linear(self.hidden1_dim, self.hidden2_dim)
         self.encoder_layer3 = nn.Linear(self.hidden2_dim, self.latent_dim)
         self.encoder = nn.Sequential(
-            Lambda(preprocess),
+            Lambda(lambda x: x.view(-1, self.input_dim)),
             self.encoder_layer1,
             nn.ReLU(),
             self.encoder_layer2,
@@ -75,24 +75,13 @@ class ProtoModel(nn.Module):
         return torch.min(x, dim=1).values
 
     def forward(self, input_):
-        xb = input_.view(-1, self.input_dim)
-        xb = self.encoder_layer1(xb)
-        xb = F.relu(xb)
-        xb = self.encoder_layer2(xb)
-
-        proto_distances, feature_distances = self.proto_layer(xb)
+        latent = self.encoder(input_)
+        
+        proto_distances, feature_distances = self.proto_layer(latent)
         min_proto_dist = self.get_min(proto_distances)
         min_feature_dist = self.get_min(feature_distances)
-
-        xb = self.decoder_layer2(xb)
-        xb = self.decoder_layer1(xb)
-        xb = F.relu(xb)
-        xb = self.recons_layer(xb)
-        recons = F.sigmoid(xb)
-
-
-        # latent = self.encoder(input_)
-        # recons = self.decoder(latent)
+        
+        recons = self.decoder(latent)
 
         prediction = self.predictor(proto_distances)
 
