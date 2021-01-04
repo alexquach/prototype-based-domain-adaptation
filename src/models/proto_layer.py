@@ -11,17 +11,15 @@ class ProtoLayer(nn.Module):
 
     def forward(self, latent_vectors):
         # TODO: Check if this is correct, or how to do uniform initialization
-        self.prototypes = self.prototype_layer(latent_vectors)
+        self.prototypes = self.prototype_layer.weight
 
         features_squared = ProtoLayer.get_norms(latent_vectors).view(-1, 1)
         protos_squared = ProtoLayer.get_norms(self.prototypes).view(1, -1)
-        print("prototype: " + str(self.prototypes.size()))
-        print("latent: " + str(latent_vectors.size()))
-        dists_to_protos = features_squared + protos_squared - 2 * torch.dot(latent_vectors, torch.transpose(self.prototypes, 0, 1))
+        dists_to_protos = features_squared + protos_squared - 2 * torch.matmul(latent_vectors, torch.transpose(self.prototypes, 0, 1))
 
         alt_features_squared = ProtoLayer.get_norms(latent_vectors).view(1, -1)
         alt_protos_squared = ProtoLayer.get_norms(self.prototypes).view(-1, 1)
-        dists_to_latents = alt_features_squared + alt_protos_squared - 2 * K.dot(self.prototypes, K.transpose(latent_vectors, 0, 1))
+        dists_to_latents = alt_features_squared + alt_protos_squared - 2 * torch.matmul(self.prototypes, torch.transpose(latent_vectors, 0, 1))
         
         return [dists_to_protos, dists_to_latents]
     

@@ -1,4 +1,4 @@
-name: blink
+name: csn
 channels:
   - pytorch
   - conda-forge
@@ -99,4 +99,4 @@ dependencies:
   - xz=5.2.5=h516909a_1
   - zlib=1.2.11=h516909a_1010
   - zstd=1.4.5=h6597ccf_2
-prefix: /home/alex/anaconda3/envs/blink
+prefix: /home/alex/anaconda3/envs/csn

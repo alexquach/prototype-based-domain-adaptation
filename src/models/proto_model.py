@@ -1,7 +1,9 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 from models.proto_layer import ProtoLayer
+from models.predictor import Predictor
 
 class Lambda(nn.Module):
     def __init__(self, func):
@@ -15,7 +17,7 @@ def preprocess(x):
     return x.view(-1, 1, 28, 28)
 
 class ProtoModel(nn.Module):
-    def __init__(self, num_prototypes, hidden1_dim, hidden2_dim, latent_dim, learning_rate):
+    def __init__(self, num_prototypes, hidden1_dim, hidden2_dim, latent_dim, num_classes, learning_rate):
         super(ProtoModel, self).__init__()
 
         # NN structure parameters
@@ -24,6 +26,7 @@ class ProtoModel(nn.Module):
         self.hidden1_dim = hidden1_dim
         self.hidden2_dim = hidden2_dim
         self.latent_dim = latent_dim
+        self.num_classes = num_classes
 
         # Loss related parameters
         self.classification_weight = 10
@@ -65,8 +68,11 @@ class ProtoModel(nn.Module):
         self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
 
         # Predictor
-        #self.predictor = Predictor(self.num_prototypes)
+        self.predictor = Predictor(self.num_prototypes, None, self.num_classes)
 
+    @staticmethod
+    def get_min(x):
+        return torch.min(x, dim=1).values
 
     def forward(self, input_):
         xb = input_.view(-1, self.input_dim)
@@ -75,8 +81,8 @@ class ProtoModel(nn.Module):
         xb = self.encoder_layer2(xb)
 
         proto_distances, feature_distances = self.proto_layer(xb)
-        min_proto_dist = get_min(proto_distances)
-        min_feature_dist = get_min(feature_distances)
+        min_proto_dist = self.get_min(proto_distances)
+        min_feature_dist = self.get_min(feature_distances)
 
         xb = self.decoder_layer2(xb)
         xb = self.decoder_layer1(xb)
@@ -88,20 +94,21 @@ class ProtoModel(nn.Module):
         # latent = self.encoder(input_)
         # recons = self.decoder(latent)
 
-        prediction = 0
-        #prediction = self.predictor.model(proto_distances)
+        prediction = self.predictor(proto_distances)
 
         return input_, recons, prediction, min_proto_dist, min_feature_dist
 
     def loss(self, input_, recons, prediction, min_proto_dist, min_feature_dist, label):
 
-        recons_loss = mse(input_, recons)
-        #pred_loss = categorical_crossentropy(label, prediction)
-        proto_dist_loss = min_proto_dist.mean()
-        feature_dist_loss = min_feature_dist.mean()
+        recons_loss = F.mse_loss(input_, recons)
+        nn.CrossEntropyLoss()
+        #pred_loss_1 = nn.NLLLoss()(torch.log(nn.Softmax(dim=1)(prediction)), label)
+        pred_loss = nn.CrossEntropyLoss()(prediction, label)
+        proto_dist_loss = torch.mean(min_proto_dist)
+        feature_dist_loss = torch.mean(min_feature_dist)
 
-        #self.classification_weight * pred_loss.mean() +\
         overall_loss = self.reconstruction_weight * recons_loss.mean() +\
+                       self.classification_weight * pred_loss.mean() +\
                        self.proto_close_to_weight * proto_dist_loss +\
                        self.close_to_proto_weight * feature_dist_loss
         
@@ -110,10 +117,11 @@ class ProtoModel(nn.Module):
     def fit(self, epochs, train_dl, valid_dl):
         for epoch in range(epochs):
             self.train()
-            for xb, _ in train_dl:
+            for xb, yb in train_dl:
                 input_, recons, prediction, min_proto_dist, min_feature_dist = self.__call__(xb)
                 
-                loss = self.loss(input_, recons, prediction, min_proto_dist, min_feature_dist)
+                loss = self.loss(input_, recons, prediction, min_proto_dist, min_feature_dist, yb)
+                print(f'{epoch} + {loss}')
                 loss.backward()
 
                 self.optim.step()
