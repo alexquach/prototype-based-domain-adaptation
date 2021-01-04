@@ -16,6 +16,6 @@ LEARNING_RATE = 0.0001
 train_dl, valid_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
 
 # create ProtoModel
-model = ProtoModel(NUM_PROTOS, HIDDEN1_DIM, HIDDEN2_DIM, LATENT_DIM, NUM_CLASSES, LEARNING_RATE)
+model = ProtoModel(NUM_PROTOS, HIDDEN1_DIM, HIDDEN2_DIM, LATENT_DIM, NUM_CLASSES, LEARNING_RATE, use_convolution=True)
 
 model.fit(NUM_EPOCHS, train_dl, valid_dl)

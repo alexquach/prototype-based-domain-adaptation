@@ -13,11 +13,11 @@ class Lambda(nn.Module):
     def forward(self, x):
         return self.func(x)
 
-def preprocess(x):
+def preprocess_conv(x):
     return x.view(-1, 1, 28, 28)
 
 class ProtoModel(nn.Module):
-    def __init__(self, num_prototypes, hidden1_dim, hidden2_dim, latent_dim, num_classes, learning_rate):
+    def __init__(self, num_prototypes, hidden1_dim, hidden2_dim, latent_dim, num_classes, learning_rate, use_convolution = False):
         super(ProtoModel, self).__init__()
 
         # NN structure parameters
@@ -34,7 +34,10 @@ class ProtoModel(nn.Module):
         self.close_to_proto_weight = 1
         self.proto_close_to_weight = 1
 
-        self.build_parts()
+        if use_convolution:
+            self.build_parts_conv()
+        else:
+            self.build_parts()
 
         self.optim = optim.SGD(self.parameters(), lr=learning_rate)
 
@@ -55,6 +58,43 @@ class ProtoModel(nn.Module):
         self.decoder_layer2 = nn.Linear(self.latent_dim, self.hidden2_dim)
         self.decoder_layer1 = nn.Linear(self.hidden2_dim, self.hidden1_dim)
         self.recons_layer = nn.Linear(self.hidden1_dim, self.input_dim)
+        self.decoder = nn.Sequential(
+            self.decoder_layer2,
+            self.decoder_layer1,
+            nn.ReLU(),
+            self.recons_layer,
+            nn.Sigmoid(),
+            Lambda(lambda x: x.view(x.size(0), -1)),
+        )
+
+        # ProtoLayer
+        self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
+
+        # Predictor
+        self.predictor = Predictor(self.num_prototypes, None, self.num_classes)
+
+    def build_parts_conv(self):
+        # Encoder
+        self.encoder_layer1 = nn.Conv2d(1, 32, 3)
+        self.encoder_layer2 = nn.Conv2d(32, 64, 3)
+        self.encoder_layer3 = nn.Linear(36864, 128)
+        self.latent_layer = nn.Linear(128, self.latent_dim)
+        self.encoder = nn.Sequential(
+            Lambda(preprocess_conv),
+            self.encoder_layer1,
+            nn.ReLU(),
+            self.encoder_layer2,
+            nn.ReLU(),
+            Lambda(lambda x: x.view(x.size(0), -1)),
+            self.encoder_layer3,
+            nn.ReLU(),
+            self.latent_layer,
+        )
+
+        # Decoder
+        self.decoder_layer2 = nn.Linear(self.latent_dim, 128)
+        self.decoder_layer1 = nn.Linear(128, 128)
+        self.recons_layer = nn.Linear(128, self.input_dim)
         self.decoder = nn.Sequential(
             self.decoder_layer2,
             self.decoder_layer1,
