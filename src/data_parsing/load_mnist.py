@@ -21,23 +21,23 @@ if not (PATH / FILENAME).exists():
 
 def load_mnist_nparray():
     with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
-        ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
-        return x_train, y_train, x_valid, y_valid
+        ((x_train, y_train), (x_test, y_test), _) = pickle.load(f, encoding="latin-1")
+        return x_train, y_train, x_test, y_test
 
 def load_mnist_tensors():
-    x_train, y_train, x_valid, y_valid = map(
+    x_train, y_train, x_test, y_test = map(
         torch.tensor, load_mnist_nparray()
     )
 
-    return x_train, y_train, x_valid, y_valid
+    return x_train, y_train, x_test, y_test
 
 def load_mnist_dataloader(bs=64):
-    x_train, y_train, x_valid, y_valid = load_mnist_tensors()
+    x_train, y_train, x_test, y_test = load_mnist_tensors()
 
     train_ds = TensorDataset(x_train, y_train)
     train_dl = DataLoader(train_ds, batch_size=bs, shuffle=True)
 
-    valid_ds = TensorDataset(x_valid, y_valid)
+    valid_ds = TensorDataset(x_test, y_test)
     valid_dl = DataLoader(valid_ds, batch_size=bs * 2)
 
     return train_dl, valid_dl
