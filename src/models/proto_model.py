@@ -6,6 +6,7 @@ import numpy as np
 
 from models.proto_layer import ProtoLayer
 from models.predictor import Predictor
+from utils.plotting import plot_rows_of_images
 
 class Lambda(nn.Module):
     def __init__(self, func):
@@ -44,7 +45,7 @@ class ProtoModel(nn.Module):
         else:
             self.build_parts()
 
-        self.optim = optim.SGD(self.parameters(), lr=learning_rate)
+        self.optim = optim.Adam(self.parameters(), lr=learning_rate)
 
     def build_parts(self):
         # Encoder
@@ -115,6 +116,39 @@ class ProtoModel(nn.Module):
         # Predictor
         self.predictor = Predictor(self.num_prototypes, None, self.num_classes)
 
+    def build_parts_alt_conv(self):
+        # TODO: look into implementing convolutional decoder and remove this alternative convolutional option
+        self.conv1 = nn.Conv2d(1, 16, 3, padding=1)  
+        self.conv2 = nn.Conv2d(16, 4, 3, padding=1)
+        self.pool = nn.MaxPool2d(2, 2)
+
+        self.encoder = nn.Sequential(
+            Lambda(preprocess_conv),
+            self.conv1,
+            nn.ReLU(),
+            self.pool,
+            self.conv2,
+            nn.ReLU(),
+            self.pool
+        )
+        
+        self.t_conv1 = nn.ConvTranspose2d(4, 16, 2, stride=2)
+        self.t_conv2 = nn.ConvTranspose2d(16, 1, 2, stride=2)
+
+        self.decoder = nn.Sequential(
+            self.t_conv1,
+            nn.ReLU(),
+            self.t_conv2,
+            nn.Sigmoid(),
+        )
+        
+        # ProtoLayer
+        self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
+
+        # Predictor
+        self.predictor = Predictor(self.num_prototypes, None, self.num_classes)
+
+
     @staticmethod
     def get_min(x):
         return torch.min(x, dim=1).values
@@ -132,10 +166,9 @@ class ProtoModel(nn.Module):
 
         return input_, recons, prediction, min_proto_dist, min_feature_dist
 
-    def loss_func(self, input_, recons, prediction, min_proto_dist, min_feature_dist, label, return_loss_components=False):
+    def loss_func(self, input_, recons, prediction, min_proto_dist, min_feature_dist, label):
 
         recons_loss = F.mse_loss(input_, recons).mean()
-        #pred_loss_1 = nn.NLLLoss()(torch.log(nn.Softmax(dim=1)(prediction)), label)
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
         proto_dist_loss = torch.mean(min_proto_dist)
         feature_dist_loss = torch.mean(min_feature_dist)
@@ -144,26 +177,27 @@ class ProtoModel(nn.Module):
                        self.classification_weight * pred_loss +\
                        self.proto_close_to_weight * proto_dist_loss +\
                        self.close_to_proto_weight * feature_dist_loss
+
+        return overall_loss, len(input_), recons_loss, pred_loss, proto_dist_loss, feature_dist_loss
         
-        if return_loss_components:
-            return recons_loss, pred_loss, proto_dist_loss, feature_dist_loss, len(input_)
-        return overall_loss, len(input_)
-        
-    def fit(self, epochs, train_dl):
+    def fit(self, epochs, train_dl, visualize_samples=False):
         while self.epoch < epochs:
             self.train()
             for xb, yb in train_dl:
                 input_, recons, prediction, min_proto_dist, min_feature_dist = self.__call__(xb)
                 
-                self.loss_val, _ = self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb)
+                self.loss_val, _, _, _, _, _ = self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb)
                 print(f'{self.epoch} + {self.loss_val}')
+
                 self.loss_val.backward()
 
                 self.optim.step()
                 self.optim.zero_grad()
             self.epoch += 1
+            if visualize_samples:
+                self.visualize_sample(train_dl, path_name=f'src/visualizations/conv_lr_adam_overall{self.epoch}.jpg')
 
-    def evaluate(self, test_dl, overall_metric=True):
+    def evaluate(self, test_dl):
         """ Generates loss metric for the test dataset
 
         Args:
@@ -175,31 +209,19 @@ class ProtoModel(nn.Module):
             else, returns each of the components of the loss (recons_loss, pred_loss, proto_dist_loss, feature_dist_loss)
         """
         self.eval()
-        # Aggregated/overall metric
-        if overall_metric:
-            # List comprehension to generate zipped pairs of batch-averaged loss and the size of batch
-            with torch.no_grad():
-                losses, size_of_batches = zip(
-                    *[self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb) 
-                    for xb, yb in test_dl
-                    for input_, recons, prediction, min_proto_dist, min_feature_dist in [self.__call__(xb)]]
-                )
-            val_loss = np.sum(np.multiply(losses, size_of_batches)) / np.sum(size_of_batches)
-            return val_loss
-        # Individual loss metrics
-        else:
-            with torch.no_grad():
-                recons_loss, pred_loss, proto_dist_loss, feature_dist_loss, size_of_batches = zip(
-                    *[self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb, return_loss_components=True) 
-                    for xb, yb in test_dl
-                    for input_, recons, prediction, min_proto_dist, min_feature_dist in [self.__call__(xb)]]
-                )
-
-            recons_loss = np.sum(np.multiply(recons_loss, size_of_batches)) / np.sum(size_of_batches)
-            pred_loss = np.sum(np.multiply(pred_loss, size_of_batches)) / np.sum(size_of_batches)
-            proto_dist_loss = np.sum(np.multiply(proto_dist_loss, size_of_batches)) / np.sum(size_of_batches)
-            feature_dist_loss = np.sum(np.multiply(feature_dist_loss, size_of_batches)) / np.sum(size_of_batches)
-            return recons_loss, pred_loss, proto_dist_loss, feature_dist_loss
+        # List comprehension to generate zipped pairs of batch-averaged losses and the size of batch
+        with torch.no_grad():
+            overall_loss, size_of_batches, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss = zip(
+                *[self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb) 
+                for xb, yb in test_dl
+                for input_, recons, prediction, min_proto_dist, min_feature_dist in [self.__call__(xb)]]
+            )
+        overall_loss = np.sum(np.multiply(overall_loss, size_of_batches)) / np.sum(size_of_batches)
+        recons_loss = np.sum(np.multiply(recons_loss, size_of_batches)) / np.sum(size_of_batches)
+        pred_loss = np.sum(np.multiply(pred_loss, size_of_batches)) / np.sum(size_of_batches)
+        proto_dist_loss = np.sum(np.multiply(proto_dist_loss, size_of_batches)) / np.sum(size_of_batches)
+        feature_dist_loss = np.sum(np.multiply(feature_dist_loss, size_of_batches)) / np.sum(size_of_batches)
+        return overall_loss, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss
 
     def save_model(self, path_name):
         """ Saves the model, optimizers, loss, and epoch
@@ -207,6 +229,7 @@ class ProtoModel(nn.Module):
         More info:
             https://pytorch.org/tutorials/beginner/saving_loading_models.html
         """
+        print(f'Saving model to {path_name}')
         torch.save({
             'epoch': self.epoch,
             'model_state_dict': self.state_dict(),
@@ -215,14 +238,15 @@ class ProtoModel(nn.Module):
             }, path_name)
 
     @staticmethod
-    def load_model(path_name, NUM_PROTOS, HIDDEN1_DIM, HIDDEN2_DIM, LATENT_DIM, NUM_CLASSES, LEARNING_RATE, use_convolution=False):
+    def load_model(path_name, num_protos, hidden1_dim, hidden2_dim, latent_dim, num_classes, learning_rate, use_convolution=False):
         """
         Note:
             If used for inference, make sure to set model.eval()
         """
+        print(f'Loading model from {path_name}')
         checkpoint = torch.load(path_name)
 
-        loaded_model = ProtoModel(NUM_PROTOS, HIDDEN1_DIM, HIDDEN2_DIM, LATENT_DIM, NUM_CLASSES, LEARNING_RATE, use_convolution)
+        loaded_model = ProtoModel(num_protos, hidden1_dim, hidden2_dim, latent_dim, num_classes, learning_rate, use_convolution)
 
         loaded_model.load_state_dict(checkpoint['model_state_dict'])
         loaded_model.optim.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -231,5 +255,20 @@ class ProtoModel(nn.Module):
 
         return loaded_model
 
-    def visualize_prototypes(self, prototypes, save_images=False):
-        reconstructed_prototypes = self.decoder(prototypes)
+    def visualize_sample(self, test_dl, num_samples=10, path_name=None, show=True):
+        input_, labels = next(iter(test_dl))
+        input_ = input_[:num_samples]
+        labels = labels[:num_samples]
+
+        reconstructions = self.decoder(self.encoder(input_))
+
+        plot_rows_of_images([input_, reconstructions], path_name, show=show)
+
+    def visualize_latent(self, latent_vector, path_name=None, show=True):
+        visualize_latent = self.decoder(latent_vector)
+
+        plot_rows_of_images([visualize_latent], path_name, show=show)
+
+    def visualize_prototypes(self, path_name=None, show=True):
+        self.visualize_latent(self.proto_layer.prototypes, path_name, show)
+    

@@ -37,7 +37,7 @@ def load_mnist_dataloader(bs=64):
     train_ds = TensorDataset(x_train, y_train)
     train_dl = DataLoader(train_ds, batch_size=bs, shuffle=True)
 
-    valid_ds = TensorDataset(x_test, y_test)
-    valid_dl = DataLoader(valid_ds, batch_size=bs * 2)
+    test_ds = TensorDataset(x_test, y_test)
+    test_dl = DataLoader(test_ds, batch_size=bs * 2)
 
-    return train_dl, valid_dl
+    return train_dl, test_dl
