@@ -167,7 +167,6 @@ class ProtoModel(nn.Module):
         return input_, recons, prediction, min_proto_dist, min_feature_dist
 
     def loss_func(self, input_, recons, prediction, min_proto_dist, min_feature_dist, label):
-
         recons_loss = F.mse_loss(input_, recons).mean()
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
         proto_dist_loss = torch.mean(min_proto_dist)
@@ -197,6 +196,22 @@ class ProtoModel(nn.Module):
             if visualize_samples:
                 self.visualize_sample(train_dl, path_name=f'src/visualizations/conv_lr_adam_overall{self.epoch}.jpg')
 
+    def class_accuracy(self, prediction, label):
+        """ Calculates class accuracy given prediction and labels
+
+        Args:
+            prediction (tensor): tensor with some distribution per sample (batchsize, num_classes)
+            label (tensor): tensor with ground truth class index labels 
+
+        Returns:
+            float with accuracy score
+        """
+        prediction_class = prediction.argmax(1)
+
+        num_correct = (prediction_class == label).sum().item()
+        class_accuracy = num_correct / len(prediction)
+        return class_accuracy
+
     def evaluate(self, test_dl):
         """ Generates loss metric for the test dataset
 
@@ -211,17 +226,20 @@ class ProtoModel(nn.Module):
         self.eval()
         # List comprehension to generate zipped pairs of batch-averaged losses and the size of batch
         with torch.no_grad():
-            overall_loss, size_of_batches, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss = zip(
-                *[self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb) 
-                for xb, yb in test_dl
-                for input_, recons, prediction, min_proto_dist, min_feature_dist in [self.__call__(xb)]]
-            )
+            for xb, yb in test_dl:
+                for input_, recons, prediction, min_proto_dist, min_feature_dist in [self.__call__(xb)]:
+                    overall_loss, size_of_batches, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss, class_acc = zip(
+                        [*self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb), 
+                        self.class_accuracy(prediction, yb)]
+                    )
+        
         overall_loss = np.sum(np.multiply(overall_loss, size_of_batches)) / np.sum(size_of_batches)
         recons_loss = np.sum(np.multiply(recons_loss, size_of_batches)) / np.sum(size_of_batches)
         pred_loss = np.sum(np.multiply(pred_loss, size_of_batches)) / np.sum(size_of_batches)
         proto_dist_loss = np.sum(np.multiply(proto_dist_loss, size_of_batches)) / np.sum(size_of_batches)
         feature_dist_loss = np.sum(np.multiply(feature_dist_loss, size_of_batches)) / np.sum(size_of_batches)
-        return overall_loss, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss
+        class_acc = np.sum(np.multiply(class_acc, size_of_batches)) / np.sum(size_of_batches)
+        return overall_loss, class_acc, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss
 
     def save_model(self, path_name):
         """ Saves the model, optimizers, loss, and epoch
