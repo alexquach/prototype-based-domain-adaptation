@@ -26,8 +26,11 @@ train_dl, test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
 # create ProtoModel
 model = ProtoModel(proto_model_config, LEARNING_RATE)
 
-model.fit(NUM_EPOCHS, train_dl, visualize_samples=True)
-#model = ProtoModel.load_model("testing.pth", proto_model_config, INPUT_DIM, NUM_PROTOS, HIDDEN1_DIM, HIDDEN2_DIM, LATENT_DIM, NUM_CLASSES, LEARNING_RATE, use_convolution=False)
+train_new = False
+if train_new:
+    model.fit(NUM_EPOCHS, train_dl, visualize_sample_name=None)
+else:
+    model = ProtoModel.load_model("testing.pth", proto_model_config, LEARNING_RATE)
 
 # generate test loss metrics
 train_losses = model.evaluate(train_dl)

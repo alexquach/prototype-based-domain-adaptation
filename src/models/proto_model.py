@@ -206,7 +206,7 @@ class ProtoModel(nn.Module):
 
         return overall_loss, len(input_), recons_loss, pred_loss, proto_dist_loss, feature_dist_loss
         
-    def fit(self, epochs, train_dl, visualize_samples=False):
+    def fit(self, epochs, train_dl, visualize_sample_name=None):
         while self.epoch < epochs:
             self.train()
             for xb, yb in train_dl:
@@ -220,8 +220,8 @@ class ProtoModel(nn.Module):
                 self.optim.step()
                 self.optim.zero_grad()
             self.epoch += 1
-            if visualize_samples:
-                self.visualize_sample(train_dl, path_name=f'src/visualizations/conv_lr_adam_overall{self.epoch}.jpg')
+            if visualize_sample_name:
+                self.visualize_sample(train_dl, path_name=f'src/visualizations/{visualize_sample_name}_{self.epoch}.jpg')
 
     def class_accuracy(self, prediction, label):
         """ Calculates class accuracy given prediction and labels
@@ -240,32 +240,35 @@ class ProtoModel(nn.Module):
         return class_accuracy
 
     def evaluate(self, test_dl):
-        """ Generates loss metric for the test dataset
+        """ Generates loss metrics for the test dataset
 
         Args:
             test_dl (torch.utils.data.DataLoader): DataLoader for the test dataset
-            overall_metric: Determines whether to return overall loss or individual loss metrics
 
         Returns:
-            if overall_metric, returns the aggregated, weighted overall loss metric
-            else, returns each of the components of the loss (recons_loss, pred_loss, proto_dist_loss, feature_dist_loss)
+            Returns the overall loss, class acurracy, reconstruction loss, prediction loss, prototype distance loss, and feature distance loss
         """
         self.eval()
-        # List comprehension to generate zipped pairs of batch-averaged losses and the size of batch
+        batch_results = None
         with torch.no_grad():
             for xb, yb in test_dl:
                 for input_, recons, prediction, min_proto_dist, min_feature_dist in [self.__call__(xb)]:
-                    overall_loss, size_of_batches, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss, class_acc = zip(
-                        [*self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb), 
-                        self.class_accuracy(prediction, yb)]
-                    )
+                    single_row = *self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb), self.class_accuracy(prediction, yb)
+                    if batch_results is None:
+                        batch_results = single_row
+                    else:
+                        batch_results = np.vstack((batch_results, single_row))
+
+        overall_loss, size_of_batches, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss, class_acc = batch_results.T
         
-        overall_loss = np.sum(np.multiply(overall_loss, size_of_batches)) / np.sum(size_of_batches)
-        recons_loss = np.sum(np.multiply(recons_loss, size_of_batches)) / np.sum(size_of_batches)
-        pred_loss = np.sum(np.multiply(pred_loss, size_of_batches)) / np.sum(size_of_batches)
-        proto_dist_loss = np.sum(np.multiply(proto_dist_loss, size_of_batches)) / np.sum(size_of_batches)
-        feature_dist_loss = np.sum(np.multiply(feature_dist_loss, size_of_batches)) / np.sum(size_of_batches)
-        class_acc = np.sum(np.multiply(class_acc, size_of_batches)) / np.sum(size_of_batches)
+        batch_size = np.sum(size_of_batches)
+
+        overall_loss = np.sum(np.multiply(overall_loss, size_of_batches)) / batch_size
+        recons_loss = np.sum(np.multiply(recons_loss, size_of_batches)) / batch_size
+        pred_loss = np.sum(np.multiply(pred_loss, size_of_batches)) / batch_size
+        proto_dist_loss = np.sum(np.multiply(proto_dist_loss, size_of_batches)) / batch_size
+        feature_dist_loss = np.sum(np.multiply(feature_dist_loss, size_of_batches)) / batch_size
+        class_acc = np.sum(np.multiply(class_acc, size_of_batches)) / batch_size
         return overall_loss, class_acc, recons_loss, pred_loss, proto_dist_loss, feature_dist_loss
 
     def save_model(self, path_name):
