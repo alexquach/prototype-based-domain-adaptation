@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
+import funcy
+from collections.abc import Iterable
 
 from models.proto_layer import ProtoLayer
 from models.predictor import Predictor
@@ -20,16 +22,19 @@ def preprocess_conv(x):
     return x.view(-1, 1, 28, 28)
 
 class ProtoModel(nn.Module):
-    def __init__(self, num_prototypes, hidden1_dim, hidden2_dim, latent_dim, num_classes, learning_rate, use_convolution = False):
+    def __init__(self, config, learning_rate):
         super(ProtoModel, self).__init__()
+        self.config = config
 
         # NN structure parameters
-        self.input_dim = 784
-        self.num_prototypes = num_prototypes
-        self.hidden1_dim = hidden1_dim
-        self.hidden2_dim = hidden2_dim
-        self.latent_dim = latent_dim
-        self.num_classes = num_classes
+        self.input_dim = funcy.get_in(self.config, ['input_dim'], None)
+        self.hidden_layers = funcy.get_in(self.config, ["hidden_layers"], None)
+        self.hidden_activations = funcy.get_in(self.config, ["hidden_activations"], None)
+        self.recon_activation = funcy.get_in(self.config, ["recon_activation"], None)
+        self.latent_dim = funcy.get_in(self.config, ['latent_dim'], None)
+        self.num_prototypes = funcy.get_in(self.config, ['num_prototypes'], None)
+        self.num_classes = funcy.get_in(self.config, ['num_classes'], None)
+        self.use_convolution = funcy.get_in(self.config, ['use_convolution'], None)
 
         # Loss related parameters
         self.classification_weight = 10
@@ -40,38 +45,60 @@ class ProtoModel(nn.Module):
         # data for storing models
         self.epoch = 0
 
-        if use_convolution:
+        if self.use_convolution:
             self.build_parts_conv()
         else:
             self.build_parts()
 
         self.optim = optim.Adam(self.parameters(), lr=learning_rate)
 
+    def process_activation(self, activation, layers):
+        if activation:
+            if isinstance(activation, Iterable):
+                for activation_part in activation:
+                    if activation_part:
+                        layers.append(activation_part)
+            else:
+                layers.append(activation)
+        return layers
+
+    def build_network(self, layer_dims, activations):
+        layers = []
+
+        for i in range(len(layer_dims) - 1):
+            layers = self.process_activation(activations[i], layers)
+
+            layers.append(nn.Linear(layer_dims[i], layer_dims[i+1]))
+
+        if activations[len(layer_dims) - 1]:
+            layers = self.process_activation(activations[len(layer_dims) - 1], layers)
+
+        return nn.Sequential(*layers)
+
+
     def build_parts(self):
         # Encoder
-        self.encoder_layer1 = nn.Linear(self.input_dim, self.hidden1_dim)
-        self.encoder_layer2 = nn.Linear(self.hidden1_dim, self.hidden2_dim)
-        self.encoder_layer3 = nn.Linear(self.hidden2_dim, self.latent_dim)
-        self.encoder = nn.Sequential(
-            Lambda(lambda x: x.view(-1, self.input_dim)),
-            self.encoder_layer1,
-            nn.ReLU(),
-            self.encoder_layer2,
-            self.encoder_layer3,
-        )
+        encoder_dims = [
+            self.config['input_dim'],
+            *self.config['hidden_layers'],
+            self.config['latent_dim']
+        ]
+        encoder_activations = [
+            Lambda(lambda x: x.view(-1, self.input_dim)), 
+            *self.config['hidden_activations'], 
+            funcy.get_in(self.config, ['latent_activation'], None),
+        ]
 
         # Decoder
-        self.decoder_layer2 = nn.Linear(self.latent_dim, self.hidden2_dim)
-        self.decoder_layer1 = nn.Linear(self.hidden2_dim, self.hidden1_dim)
-        self.recons_layer = nn.Linear(self.hidden1_dim, self.input_dim)
-        self.decoder = nn.Sequential(
-            self.decoder_layer2,
-            self.decoder_layer1,
-            nn.ReLU(),
-            self.recons_layer,
-            nn.Sigmoid(),
-            Lambda(lambda x: x.view(x.size(0), -1)),
-        )
+        decoder_dims = list(reversed(encoder_dims))
+        decoder_activations = [
+            None,
+            *list(reversed(self.config['hidden_activations'])), 
+            (funcy.get_in(self.config, ['recon_activation'], None), Lambda(lambda x: x.view(-1, self.input_dim))), 
+        ]
+
+        self.encoder = self.build_network(encoder_dims, encoder_activations)
+        self.decoder = self.build_network(decoder_dims, decoder_activations)
 
         # ProtoLayer
         self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
@@ -256,7 +283,7 @@ class ProtoModel(nn.Module):
             }, path_name)
 
     @staticmethod
-    def load_model(path_name, num_protos, hidden1_dim, hidden2_dim, latent_dim, num_classes, learning_rate, use_convolution=False):
+    def load_model(path_name, config, learning_rate):
         """
         Note:
             If used for inference, make sure to set model.eval()
@@ -264,7 +291,7 @@ class ProtoModel(nn.Module):
         print(f'Loading model from {path_name}')
         checkpoint = torch.load(path_name)
 
-        loaded_model = ProtoModel(num_protos, hidden1_dim, hidden2_dim, latent_dim, num_classes, learning_rate, use_convolution)
+        loaded_model = ProtoModel(config, learning_rate)
 
         loaded_model.load_state_dict(checkpoint['model_state_dict'])
         loaded_model.optim.load_state_dict(checkpoint['optimizer_state_dict'])
