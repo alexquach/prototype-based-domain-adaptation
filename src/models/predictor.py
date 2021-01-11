@@ -2,6 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class Lambda(nn.Module):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def forward(self, x):
+        return self.func(x)
+
 class Predictor(nn.Module):
 
     def __init__(self, num_prototypes, layers, num_classes):
@@ -21,8 +29,12 @@ class Predictor(nn.Module):
         if layers:
             pass
             # TODO: generate hidden layers
-        else:
             self.final_layer = nn.Linear(self.num_prototypes, self.num_classes)
+        else:
+            self.final_layer = nn.Sequential(
+                Lambda(lambda x: torch.neg(x)),
+                nn.Softmax()
+            )
 
     def forward(self, proto_distances):
         return self.final_layer(proto_distances)
