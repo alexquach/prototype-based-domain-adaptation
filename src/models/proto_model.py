@@ -320,3 +320,43 @@ class ProtoModel(nn.Module):
     def visualize_prototypes(self, path_name=None, show=True):
         self.visualize_latent(self.proto_layer.prototypes, path_name, show)
     
+    def generate_latent_transition(self, target_model):
+        latent_transition = LatentTransition(self, target_model)
+        latent_transition.fit()
+        return latent_transition
+
+class LatentTransition(nn.Module):
+    def __init__(self, source_model, target_model, epochs=20):
+        super().__init__()
+        self.source_model = source_model
+        self.target_model = target_model
+        self.epoch = 0
+        self.epochs = epochs
+        self.linear_layer_1 = nn.Linear(source_model.latent_dim, 256)
+        self.linear_layer_2 = nn.Linear(256, target_model.latent_dim)
+        self.optim = optim.Adam(self.parameters())
+        self.true_reconstruction = target_model.decoder(target_model.proto_layer.prototypes)
+
+    def fit(self):
+        while self.epoch < self.epochs:
+            self.train()
+            recons = self.__call__(self.source_model.proto_layer.prototypes)
+            
+            self.loss_val = F.mse_loss(recons, self.true_reconstruction).mean()
+            print(f'{self.epoch} + {self.loss_val}')
+
+            self.loss_val.backward(retain_graph=True)
+
+            self.optim.step()
+            self.optim.zero_grad()
+            self.epoch += 1
+
+    def forward(self, source_prototypes):
+        hidden_1 = self.linear_layer_1(source_prototypes)
+        hidden_1 = F.relu(hidden_1)
+        transformed_prototype = self.linear_layer_2(hidden_1)
+        return self.target_model.decoder(transformed_prototype)
+
+    def visualize_transformed_source_prototype(self, path_name):
+        transformed_prototype = self.__call__(self.source_model.proto_layer.prototypes)
+        plot_rows_of_images([transformed_prototype], path_name)

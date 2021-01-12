@@ -10,7 +10,7 @@ proto_model_config = {
     "hidden_activations": [nn.ReLU(), None],
     "latent_dim": 128,
     "recon_activation": nn.Sigmoid(),
-    "num_prototypes": 12,
+    "num_prototypes": 10,
     "num_classes": 10,
     "use_convolution": False
 }
@@ -26,9 +26,9 @@ train_dl, test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
 # create ProtoModel
 model = ProtoModel(proto_model_config, LEARNING_RATE)
 
-train_new = False
+train_new = True
 if train_new:
-    model.fit(NUM_EPOCHS, train_dl, visualize_sample_name=None)
+    model.fit(NUM_EPOCHS, train_dl, visualize_sample_name="proto_softmax")
 else:
     model = ProtoModel.load_model("testing.pth", proto_model_config, LEARNING_RATE)
 
@@ -38,8 +38,8 @@ print(train_losses)
 test_losses = model.evaluate(test_dl)
 print(test_losses)
 
-# model.visualize_sample(test_dl, path_name="conv_test.jpg")
-# model.visualize_prototypes(path_name="conv_test_proto")
+model.visualize_sample(test_dl, path_name="proto_softmax.jpg")
+model.visualize_prototypes(path_name="proto_softmax_proto.jpg")
 
 # Testing the save/load functionality
 test_save = True
