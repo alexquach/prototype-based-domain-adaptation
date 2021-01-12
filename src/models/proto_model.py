@@ -322,11 +322,13 @@ class ProtoModel(nn.Module):
     
     def generate_latent_transition(self, target_model):
         latent_transition = LatentTransition(self, target_model)
+        latent_transition.test_decoder_visualization("before_decoder_train.jpg")
         latent_transition.fit()
+        latent_transition.test_decoder_visualization("after_decoder_train.jpg")
         return latent_transition
 
 class LatentTransition(nn.Module):
-    def __init__(self, source_model, target_model, epochs=20):
+    def __init__(self, source_model, target_model, epochs=1000):
         super().__init__()
         self.source_model = source_model
         self.target_model = target_model
@@ -334,12 +336,17 @@ class LatentTransition(nn.Module):
         self.epochs = epochs
         self.linear_layer_1 = nn.Linear(source_model.latent_dim, 256)
         self.linear_layer_2 = nn.Linear(256, target_model.latent_dim)
-        self.optim = optim.Adam(self.parameters())
+        # TODO: Check whether optimizer is optimizing decoder too
+        self.optim = optim.Adam([
+            *self.linear_layer_1.parameters(),
+            *self.linear_layer_2.parameters(),
+        ])
         self.true_reconstruction = target_model.decoder(target_model.proto_layer.prototypes)
 
     def fit(self):
         while self.epoch < self.epochs:
             self.train()
+            # training on 10 prototypes
             recons = self.__call__(self.source_model.proto_layer.prototypes)
             
             self.loss_val = F.mse_loss(recons, self.true_reconstruction).mean()
@@ -352,11 +359,33 @@ class LatentTransition(nn.Module):
             self.epoch += 1
 
     def forward(self, source_prototypes):
+        # Transforming based off of decoded prototypes
         hidden_1 = self.linear_layer_1(source_prototypes)
         hidden_1 = F.relu(hidden_1)
         transformed_prototype = self.linear_layer_2(hidden_1)
         return self.target_model.decoder(transformed_prototype)
 
+    def test_decoder_visualization(self, path_name):
+        """ Encoded by target_model, Decoded by target_model """
+        decoded = self.target_model.decoder(self.target_model.proto_layer.prototypes)
+        plot_rows_of_images([decoded], path_name)
+
     def visualize_transformed_source_prototype(self, path_name):
+        """ Encoded by source_model, Converted by latent_transition, Decoded by target_model """
         transformed_prototype = self.__call__(self.source_model.proto_layer.prototypes)
+        true_decoded = self.target_model.decoder(self.target_model.proto_layer.prototypes)
+
+        print(F.mse_loss(transformed_prototype, true_decoded).mean())
+
         plot_rows_of_images([transformed_prototype], path_name)
+
+    def visualize_sample(self, test_dl, path_name, num_samples=10):
+        input_, labels = next(iter(test_dl))
+        input_ = input_[:num_samples]
+        labels = labels[:num_samples]
+
+        encoded = self.source_model.encoder(input_)
+        reconstructions = self.__call__(encoded)
+
+        print(F.mse_loss(reconstructions, input_).mean())
+        plot_rows_of_images([input_, reconstructions], path_name)

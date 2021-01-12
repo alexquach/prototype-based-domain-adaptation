@@ -69,6 +69,7 @@ proto_2 = model_2.proto_layer.prototypes
 lt = model_1.generate_latent_transition(model_2)
 
 lt.visualize_transformed_source_prototype("transformed_prototype_dense.jpg")
+lt.visualize_sample(test_dl, "transformed_sample.jpg")
 
 # Testing the save/load functionality
 test_save = False
