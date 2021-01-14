@@ -6,7 +6,7 @@ def load_svhn_dataloader(bs=64, greyscale=False):
     if greyscale:
         transform = Compose([
             CenterCrop(28),
-            Grayscale,
+            Grayscale(),
             ToTensor()
         ])
     else:

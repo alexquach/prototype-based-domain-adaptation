@@ -8,6 +8,7 @@ from collections.abc import Iterable
 
 from models.proto_layer import ProtoLayer
 from models.predictor import Predictor
+from models.latent_transition import LatentTransition
 from utils.plotting import plot_rows_of_images
 
 class Lambda(nn.Module):
@@ -181,6 +182,7 @@ class ProtoModel(nn.Module):
         return torch.min(x, dim=1).values
 
     def forward(self, input_):
+        input_ = input_.view(-1, self.input_dim)
         latent = self.encoder(input_)
         
         proto_distances, feature_distances = self.proto_layer(latent)
@@ -320,120 +322,9 @@ class ProtoModel(nn.Module):
     def visualize_prototypes(self, path_name=None, show=True):
         self.visualize_latent(self.proto_layer.prototypes, path_name, show)
     
-    def generate_latent_transition(self, target_model):
+    def generate_latent_transition(self, target_model, source_train_dl):
         latent_transition = LatentTransition(self, target_model)
         latent_transition.test_decoder_visualization("before_decoder_train.jpg")
-        latent_transition.fit()
+        latent_transition.fit(source_train_dl)
         latent_transition.test_decoder_visualization("after_decoder_train.jpg")
         return latent_transition
-
-class LatentTransition(nn.Module):
-    def __init__(self, source_model, target_model, epochs=1000):
-        super().__init__()
-        self.source_model = source_model
-        self.target_model = target_model
-        self.epoch = 0
-        self.epochs = epochs
-        self.linear_layer_1 = nn.Linear(source_model.latent_dim, 256)
-        self.linear_layer_2 = nn.Linear(256, target_model.latent_dim)
-        self.transition_model = nn.Sequential(
-            self.linear_layer_1,
-            nn.ReLU(),
-            self.linear_layer_2
-        )
-        self.optim = optim.Adam([
-            *self.linear_layer_1.parameters(),
-            *self.linear_layer_2.parameters(),
-        ])
-        self.true_reconstruction = target_model.decoder(target_model.proto_layer.prototypes)
-
-    def fit(self):
-        while self.epoch < self.epochs:
-            self.train()
-            # training on 10 prototypes
-            recons, recons_before, recons_after = self.__call__(self.source_model.proto_layer.prototypes)
-            
-            self.loss_val = F.mse_loss(recons, self.true_reconstruction).mean()
-            print(f'{self.epoch} + {self.loss_val}')
-
-            self.loss_val.backward(retain_graph=True)
-
-            self.optim.step()
-            self.optim.zero_grad()
-            self.epoch += 1
-
-    def forward(self, latent_source):
-        """
-        Types:
-            1. Converts source (latent space) to target (latent space)
-            2. Snaps prototype in the source space, then converts to target latent space
-            3. Snaps prototype in the target source, after it's converted to the target latent space.
-
-        Returns:
-            1. latent_source -> latent_target -> decoded
-            2. latent_source -> prototype_s -> prototype_s_target -> decoded (proto before transition)
-            3. latent_source -> latent_target -> prototype_t -> decoded (proto after transition)
-        """
-
-        # 1
-        latent_target = self.transition_model(latent_source)
-
-        # 2
-        proto_distances_source, _ = self.source_model.proto_layer(latent_source)
-        prototype_s_index = torch.argmax(self.source_model.predictor(proto_distances_source), dim=1)
-        prototype_s = self.source_model.proto_layer.prototypes[prototype_s_index]
-        prototype_s_target = self.transition_model(prototype_s)
-
-        # 3
-        proto_distances_target, _ = self.target_model.proto_layer(latent_target)
-        prototype_t_index = torch.argmax(self.target_model.predictor(proto_distances_target), dim=1)
-        prototype_t = self.target_model.proto_layer.prototypes[prototype_t_index]
-
-        return self.target_model.decoder(latent_target), self.target_model.decoder(prototype_s_target), self.target_model.decoder(prototype_t)
-
-    def evaluate(self, test_dl):
-        self.eval()
-        batch_results = None
-        with torch.no_grad():
-            for xb, yb in test_dl:
-                encoded_input = self.source_model.encoder(xb)
-                for no_proto, before_proto, after_proto in [self.__call__(encoded_input)]:
-                    single_row = len(xb), F.mse_loss(xb, no_proto).mean(), F.mse_loss(xb, before_proto).mean(), F.mse_loss(xb, after_proto).mean()
-                    if batch_results is None:
-                        batch_results = single_row
-                    else:
-                        batch_results = np.vstack((batch_results, single_row))
-
-        size_of_batches, no_proto, before_proto, after_proto = batch_results.T
-        
-        batch_size = np.sum(size_of_batches)
-
-        no_proto = np.sum(np.multiply(no_proto, size_of_batches)) / batch_size
-        before_proto = np.sum(np.multiply(before_proto, size_of_batches)) / batch_size
-        after_proto = np.sum(np.multiply(after_proto, size_of_batches)) / batch_size
-
-        return no_proto, before_proto, after_proto
-
-    def test_decoder_visualization(self, path_name):
-        """ Encoded by target_model, Decoded by target_model """
-        decoded = self.target_model.decoder(self.target_model.proto_layer.prototypes)
-        plot_rows_of_images([decoded], path_name)
-
-    def visualize_transformed_source_prototype(self, path_name):
-        """ Encoded by source_model, Converted by latent_transition, Decoded by target_model """
-        transformed_prototype, _, _ = self.__call__(self.source_model.proto_layer.prototypes)
-        true_decoded = self.target_model.decoder(self.target_model.proto_layer.prototypes)
-
-        print(F.mse_loss(transformed_prototype, true_decoded).mean())
-
-        plot_rows_of_images([transformed_prototype], path_name)
-
-    def visualize_sample(self, test_dl, path_name, num_samples=10):
-        input_, labels = next(iter(test_dl))
-        input_ = input_[:num_samples]
-        labels = labels[:num_samples]
-
-        encoded = self.source_model.encoder(input_)
-        reconstructions, _, _ = self.__call__(encoded)
-
-        plot_rows_of_images([input_, reconstructions], path_name)
