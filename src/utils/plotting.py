@@ -29,7 +29,7 @@ def plot_rows_of_images(images, savepath=None, show=True):
     for i, type_of_img in enumerate(images):
         for j in range(type_of_img.shape[0]):
             new_ax = plt.subplot(gs[i, j])
-            plot_single_img(np.reshape(type_of_img[j].detach(), (1, -1)), ax=new_ax)
+            plot_single_img(np.reshape(type_of_img[j].cpu().detach(), (1, -1)), ax=new_ax)
 
     if savepath:
         plt.savefig(savepath)
