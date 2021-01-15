@@ -4,6 +4,8 @@ import torch.nn as nn
 from data_parsing import load_mnist, load_svhn
 from models.proto_model import ProtoModel
 
+dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
 proto_model_config = {
     "input_dim": 784,
     "latent_dim": 128,
@@ -30,6 +32,7 @@ train_dl, test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True)
 
 # create ProtoModel
 model = ProtoModel(proto_model_config, LEARNING_RATE)
+model.to(dev)
 
 train_new = True
 if train_new:

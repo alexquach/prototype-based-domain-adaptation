@@ -257,6 +257,9 @@ class ProtoModel(nn.Module):
         while self.epoch < epochs:
             self.train()
             for xb, yb in train_dl:
+                dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+                xb.to(dev)
+                yb.to(dev)
                 input_, recons, prediction, min_proto_dist, min_feature_dist = self.__call__(xb)
                 
                 self.loss_val, _, _, _, _, _ = self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb)
