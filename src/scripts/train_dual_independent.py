@@ -63,7 +63,8 @@ if evaluate_models:
 
 model_1.visualize_prototypes(path_name="mnist_proto_1")
 model_2.visualize_prototypes(path_name="svhn_proto_2")
-model_2.visualize_sample(mnist_test_dl, path_name="mnist_sample.jpg")
+#model_2.visualize_sample(mnist_test_dl, path_name="svhn_mnist_sample.jpg")
+model_2.visualize_sample(svhn_test_dl, path_name="svhn_svhn_sample.jpg")
 
 proto_1 = model_1.proto_layer.prototypes
 proto_2 = model_2.proto_layer.prototypes
@@ -71,7 +72,7 @@ proto_2 = model_2.proto_layer.prototypes
 lt = model_1.generate_latent_transition(model_2, mnist_train_dl)
 
 # lt.visualize_transformed_source_prototype("mnist_svhn_proto.jpg")
-# lt.visualize_sample(mnist_test_dl, "mnist_svhn_sample.jpg")
+lt.visualize_sample(mnist_test_dl, "mnist_svhn_sample.jpg")
 eval_ = lt.evaluate(mnist_test_dl)
 print(eval_)
 

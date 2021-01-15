@@ -115,14 +115,35 @@ class ProtoModel(nn.Module):
         self.latent_layer = nn.Linear(128, self.latent_dim)
         self.encoder = nn.Sequential(
             Lambda(preprocess_conv),
-            self.encoder_layer1,
+            nn.Conv2d(1, 32, 3, 1, 1),
             nn.ReLU(),
-            self.encoder_layer2,
+            nn.BatchNorm2d(32),
+
+            nn.Conv2d(32, 32, 3, 1, 1),
             nn.ReLU(),
+            nn.MaxPool2d((2,2)),
+            nn.Dropout(0.3),
+
+            nn.Conv2d(32, 64, 3, 1, 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+
+            nn.Conv2d(64, 64, 3, 1, 1),
+            nn.ReLU(),
+            nn.MaxPool2d((2,2)),
+            nn.Dropout(0.3),
+
+            nn.Conv2d(64, 128, 3, 1, 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+
+            nn.Conv2d(128, 128, 3, 1, 1),
+            nn.ReLU(),
+            nn.MaxPool2d((2, 2)),
+            nn.Dropout(0.3),
+
             Lambda(lambda x: x.view(x.size(0), -1)),
-            self.encoder_layer3,
-            nn.ReLU(),
-            self.latent_layer,
+            nn.Linear(1152, 128)
         )
 
         # Decoder
@@ -130,10 +151,34 @@ class ProtoModel(nn.Module):
         self.decoder_layer1 = nn.Linear(128, 128)
         self.recons_layer = nn.Linear(128, self.input_dim)
         self.decoder = nn.Sequential(
-            self.decoder_layer2,
-            self.decoder_layer1,
+            # nn.Linear(128, 1152),
+            # nn.ReLU(),
+            # Lambda(lambda x: x.view(128, 128, 3, 3)),
+
+            # nn.MaxUnpool2d((2, 2)),
+            # nn.ConvTranspose2d(128, 128, 3, 1, 1),
+            # nn.ReLU(),
+            # nn.ConvTranspose2d(128, 64, 3, 1, 1),
+            # nn.ReLU(),
+
+            # nn.MaxUnpool2d((2,2)),
+            # nn.ConvTranspose2d(64, 64, 3, 1, 1),
+            # nn.ReLU(),
+            # nn.ConvTranspose2d(64, 32, 3, 1, 1),
+            # nn.ReLU(),
+
+            # nn.MaxUnpool2d((2,2)),
+            # nn.ConvTranspose2d(32, 32, 3, 1, 1),
+            # nn.ReLU(),
+            # nn.ConvTranspose2d(32, 1, 3, 1, 1),
+            # nn.Sigmoid(),
+
+
+            nn.Linear(self.latent_dim, 256),
             nn.ReLU(),
-            self.recons_layer,
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, self.input_dim),
             nn.Sigmoid(),
             Lambda(lambda x: x.view(x.size(0), -1)),
         )
@@ -159,7 +204,7 @@ class ProtoModel(nn.Module):
             nn.ReLU(),
             self.pool
         )
-        
+        nn.ConvTranspose2d(16, 4, 2, 2)
         self.t_conv1 = nn.ConvTranspose2d(4, 16, 2, stride=2)
         self.t_conv2 = nn.ConvTranspose2d(16, 1, 2, stride=2)
 

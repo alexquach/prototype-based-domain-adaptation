@@ -146,7 +146,8 @@ class LatentTransition(nn.Module):
         input_ = input_[:num_samples]
         labels = labels[:num_samples]
 
-        encoded = self.source_model.encoder(input_)
-        reconstructions, _, _ = self.__call__(encoded)
+        latent_source = self.source_model.encoder(input_)
+        latent_target = self.transition_model(latent_source)
+        reconstructions = self.target_model.decoder(latent_target)
 
         plot_rows_of_images([input_, reconstructions], path_name)
