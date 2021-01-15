@@ -26,6 +26,7 @@ class ProtoModel(nn.Module):
     def __init__(self, config, learning_rate):
         super(ProtoModel, self).__init__()
         self.config = config
+        self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
         # NN structure parameters
         self.input_dim = funcy.get_in(self.config, ['input_dim'], None)
@@ -227,7 +228,7 @@ class ProtoModel(nn.Module):
         return torch.min(x, dim=1).values
 
     def forward(self, input_):
-        input_ = input_.view(-1, self.input_dim)
+        input_ = input_.view(-1, self.input_dim).to(self.dev)
         latent = self.encoder(input_)
         
         proto_distances, feature_distances = self.proto_layer(latent)
@@ -257,9 +258,8 @@ class ProtoModel(nn.Module):
         while self.epoch < epochs:
             self.train()
             for xb, yb in train_dl:
-                dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-                xb.to(dev)
-                yb.to(dev)
+                xb.to(self.dev)
+                yb.to(self.dev)
                 input_, recons, prediction, min_proto_dist, min_feature_dist = self.__call__(xb)
                 
                 self.loss_val, _, _, _, _, _ = self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb)
