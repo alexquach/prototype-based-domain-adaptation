@@ -303,6 +303,8 @@ class ProtoModel(nn.Module):
         batch_results = None
         with torch.no_grad():
             for xb, yb in test_dl:
+                xb = xb.to(self.dev)
+                yb = yb.to(self.dev)
                 for input_, recons, prediction, min_proto_dist, min_feature_dist in [self.__call__(xb)]:
                     single_row = *self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb), self.class_accuracy(prediction, yb)
                     if batch_results is None:
@@ -356,15 +358,15 @@ class ProtoModel(nn.Module):
 
     def visualize_sample(self, test_dl, num_samples=10, path_name=None, show=True):
         input_, labels = next(iter(test_dl))
-        input_ = input_[:num_samples]
-        labels = labels[:num_samples]
+        input_ = input_[:num_samples].to(self.dev)
+        labels = labels[:num_samples].to(self.dev)
 
         reconstructions = self.decoder(self.encoder(input_))
 
         plot_rows_of_images([input_, reconstructions], path_name, show=show)
 
     def visualize_latent(self, latent_vector, path_name=None, show=True):
-        visualize_latent = self.decoder(latent_vector)
+        visualize_latent = self.decoder(latent_vector.to(self.dev))
 
         plot_rows_of_images([visualize_latent], path_name, show=show)
 
