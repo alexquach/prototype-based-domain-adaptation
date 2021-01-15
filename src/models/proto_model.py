@@ -228,7 +228,8 @@ class ProtoModel(nn.Module):
         return torch.min(x, dim=1).values
 
     def forward(self, input_):
-        input_ = input_.view(-1, self.input_dim).to(self.dev)
+        input_ = input_.to(self.dev)
+        input_ = input_.view(-1, self.input_dim)
         latent = self.encoder(input_)
         
         proto_distances, feature_distances = self.proto_layer(latent)
