@@ -25,7 +25,7 @@ proto_model_config_2 = {
     "recon_activation": nn.Sigmoid(),
     "num_prototypes": 10,
     "num_classes": 10,
-    "use_convolution": False
+    "use_convolution": True
 }
 
 # Hyperparameters
