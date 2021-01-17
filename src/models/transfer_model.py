@@ -48,11 +48,10 @@ class TransferModel(nn.Module):
         Trains on source samples to optimize prototypes + transition + decoder?
 
         """
+        label_loss_history = []
+        label_acc_history = []
         while self.epoch < self.epochs:
-            self.train()
-
-            label_loss_history = []
-            label_acc_history = []
+            self.train()    
 
             # Train on unlabelled target
             for xb, _ in target_train_dl:
@@ -87,21 +86,22 @@ class TransferModel(nn.Module):
             # TODO: Make consistent batch, not random batch
             # Train on few-shot labelled target
             # Currently using one batch of labelled data
-            xb, yb = next(iter(target_train_dl))
-            xb = xb.to(self.dev)
-            yb = yb.to(self.dev)
-            input_, recon_image, prediction, _, _ = self.target_model(xb)
+            for i in range(100):
+                xb, yb = next(iter(target_train_dl))
+                xb = xb.to(self.dev)
+                yb = yb.to(self.dev)
+                input_, recon_image, prediction, _, _ = self.target_model(xb)
 
-            self.loss_target_label, target_label_accuracy = self.loss_pred(prediction, yb)
-            print(f'labelled target {self.epoch}: {self.loss_target_label} and acc {target_label_accuracy}')
+                self.loss_target_label, target_label_accuracy = self.loss_pred(prediction, yb)
+                print(f'labelled target {self.epoch}: {self.loss_target_label} and acc {target_label_accuracy}')
+                self.loss_target_label.backward()
+
+                self.optim_target_label.step()
+                self.optim_target_label.zero_grad()
             label_loss_history.append(self.loss_target_label)
             label_acc_history.append(target_label_accuracy)
             print(label_loss_history)
             print(label_acc_history)
-            self.loss_target_label.backward()
-
-            self.optim_target_label.step()
-            self.optim_target_label.zero_grad()
 
 
             # Train transfer layer
