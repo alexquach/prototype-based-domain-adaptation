@@ -88,6 +88,8 @@ class TransferModel(nn.Module):
             # Train on few-shot labelled target
             # Currently using one batch of labelled data
             xb, yb = next(iter(target_train_dl))
+            xb = xb.to(self.dev)
+            yb = yb.to(self.dev)
             input_, recon_image, prediction, _, _ = self.target_model(xb)
 
             self.loss_target_label, target_label_accuracy = self.loss_pred(prediction, yb)
