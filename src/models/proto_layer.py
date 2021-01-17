@@ -7,14 +7,11 @@ class ProtoLayer(nn.Module):
         super(ProtoLayer, self).__init__(**kwargs)
         self.num_prototypes = num_prototypes
         self.latent_dim = latent_dim
-        self.prototype_layer = nn.Linear(latent_dim, num_prototypes)
+        #self.prototype_layer = nn.Linear(latent_dim, num_prototypes)
+        #self.prototypes = self.prototype_layer.weight
 
-        # TODO: Restructure as Parameter and do uniform initialization
-        # self.prototypes = nn.Parameter(data=Torch.Tensor(outputdim, inputdim, et))
-        # nn.init.uniform_(self.prototype_layer.weight)
-        # nn.init.uniform_(self.params, -0.5, 0.5)
-        # nn.Parameter(data=torch.zeros(self.model_dim, self.rank))
-        self.prototypes = self.prototype_layer.weight
+        self.prototypes = nn.Parameter(data=torch.Tensor(num_prototypes, latent_dim))
+        nn.init.uniform_(self.prototypes)
 
     def forward(self, latent_vectors):
         """ Calculates L2 distances between encoded input (`latent_vectors`) and the prototypes.
