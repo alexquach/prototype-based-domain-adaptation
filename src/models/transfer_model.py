@@ -33,6 +33,7 @@ class TransferModel(nn.Module):
         ])
         self.optim_target_label = optim.Adam([
             *self.target_model.parameters(),
+            self.target_model.proto_layer.prototypes,
         ])
         self.optim_transfer_layer = optim.Adam([
             *self.transfer_layer_1.parameters(),
@@ -155,3 +156,31 @@ class TransferModel(nn.Module):
         class_accuracy = np.sum(np.multiply(class_accuracy, size_of_batches)) / batch_size
 
         return class_loss, class_accuracy
+
+    def save_model(self, path_name):
+        """ Saves the model, optimizers, loss, and epoch
+
+        More info:
+            https://pytorch.org/tutorials/beginner/saving_loading_models.html
+        """
+        print(f'Saving model to {path_name}')
+        torch.save({
+            'epoch': self.epoch,
+            'model_state_dict': self.state_dict(),
+            }, path_name)
+
+    @staticmethod
+    def load_model(path_name, config, learning_rate):
+        """
+        Note:
+            If used for inference, make sure to set model.eval()
+        """
+        print(f'Loading model from {path_name}')
+        checkpoint = torch.load(path_name)
+
+        loaded_model = TransferModel(config, learning_rate)
+
+        loaded_model.load_state_dict(checkpoint['model_state_dict'])
+        loaded_model.epoch = checkpoint['epoch']
+
+        return loaded_model

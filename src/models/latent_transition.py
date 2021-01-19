@@ -9,6 +9,7 @@ from utils.plotting import plot_rows_of_images
 class LatentTransition(nn.Module):
     def __init__(self, source_model, target_model, epochs=10):
         super().__init__()
+        self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
         self.target_model = target_model
         self.epoch = 0
@@ -26,6 +27,8 @@ class LatentTransition(nn.Module):
         ])
         self.true_reconstruction = target_model.decoder(target_model.proto_layer.prototypes)
 
+        self.to(self.dev)
+
     def fit(self, source_train_dl):
         """
         Trains on source samples to optimize prototypes + transition + decoder?
@@ -34,6 +37,8 @@ class LatentTransition(nn.Module):
         while self.epoch < self.epochs:
             self.train()
             for xb, yb in source_train_dl:
+                xb = xb.to(self.dev)
+                yb = yb.to(self.dev)
                 latent_source = self.source_model.encoder(xb)
                 prediction = self.__call__(latent_source)
                 
@@ -56,6 +61,7 @@ class LatentTransition(nn.Module):
         Returns:
             Distribution of Predictions across each of the prototypes
         """
+        latent_source = latent_source.to(self.dev)
         latent_target = self.transition_model(latent_source)
 
         proto_distances_target, _ = self.target_model.proto_layer(latent_target)
@@ -102,13 +108,19 @@ class LatentTransition(nn.Module):
 
 
     def evaluate(self, source_test_ds):
-        """ Evaluates the classification loss for the source test dataset, using the transition layer and target_decoder
+        """ Evaluates the classification loss for the source test dataset
+        
+        1. Uses source encoder
+        2. Uses transition layer
+        3. Evaluates prediction from target predictor
 
         """
         self.eval()
         batch_results = None
         with torch.no_grad():
             for xb, yb in source_test_ds:
+                xb = xb.to(self.dev)
+                yb = yb.to(self.dev)
                 latent_source = self.source_model.encoder(xb)
                 prediction = self.__call__(latent_source)
 
@@ -143,8 +155,8 @@ class LatentTransition(nn.Module):
 
     def visualize_sample(self, test_dl, path_name, num_samples=10):
         input_, labels = next(iter(test_dl))
-        input_ = input_[:num_samples]
-        labels = labels[:num_samples]
+        input_ = input_[:num_samples].to(self.dev)
+        labels = labels[:num_samples].to(self.dev)
 
         latent_source = self.source_model.encoder(input_)
         latent_target = self.transition_model(latent_source)
