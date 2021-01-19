@@ -52,6 +52,8 @@ class TransferModel(nn.Module):
         """
         label_loss_history = []
         label_acc_history = []
+        eval_loss_history = []
+        eval_acc_history = []
 
         # TODO: Check for even distribution of labelled examples
         xb_label, yb_label = next(iter(target_train_dl))
@@ -114,9 +116,24 @@ class TransferModel(nn.Module):
 
             self.epoch += 1
 
-        print(label_loss_history)
-        print(label_acc_history)
-        print(yb_label.bincount())
+            # calculate evaluate loss per epoch
+            self.eval()
+            xb_evaluate, yb_evaluate = next(iter(target_train_dl))
+            xb_evaluate = xb_evaluate.to(self.dev)
+            yb_evaluate = yb_evaluate.to(self.dev)
+
+            _, _, eval_prediction, _, _ = self.target_model(xb_evaluate)
+
+            eval_loss, eval_acc = self.loss_pred(eval_prediction, yb_evaluate)
+            print(f'evaluation {self.epoch}: {eval_loss} and acc {eval_acc}')
+            eval_loss_history.append(eval_loss)
+            eval_acc_history.append(eval_acc)
+
+        print(f'train_loss: {label_loss_history}')
+        print(f'train_acc: {label_acc_history}')
+        print(f'eval_loss: {eval_loss_history}')
+        print(f'eval_acc: {eval_acc_history}')
+        print(f'label_bincount: {yb_label.bincount()}')
 
     def fit_epoch_based(self, source_train_dl, target_train_dl):
         """
