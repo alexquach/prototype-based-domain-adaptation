@@ -44,7 +44,81 @@ class TransferModel(nn.Module):
 
         self.to(self.dev)
 
-    def fit(self, source_train_dl, target_train_dl):
+
+    def fit_interleave(self, source_train_dl, target_train_dl):
+        """
+        Trains on source samples to optimize prototypes + transition + decoder?
+
+        """
+        label_loss_history = []
+        label_acc_history = []
+
+        # TODO: Check for even distribution of labelled examples
+        xb_label, yb_label = next(iter(target_train_dl))
+        xb_label = xb_label.to(self.dev)
+        yb_label = yb_label.to(self.dev)
+
+        while self.epoch < self.epochs:
+            self.train()    
+
+            # Loop over target_train and source_train datasets
+            for (xb_target_unlabel, _), (xb_source, yb_source) in zip(target_train_dl, source_train_dl):
+                xb_target_unlabel = xb_target_unlabel.to(self.dev)
+                xb_source = xb_source.to(self.dev)
+                yb_source = yb_source.to(self.dev)
+
+                # Train on unlabelled target
+                input_, recon_image, _, _, _ = self.target_model(xb_target_unlabel)
+
+                self.loss_target_unlabel = self.loss_recon(input_, recon_image)
+                print(f'unlabelled target {self.epoch}: {self.loss_target_unlabel}')
+                self.loss_target_unlabel.backward()
+                self.optim_target_unlabel.step()
+                self.optim_target_unlabel.zero_grad()
+
+
+                # Train on transfered source
+                latent_source = self.source_model.encoder(xb_source)
+                latent_target = self.transfer_layer(latent_source)
+                proto_distances_target, _ = self.target_model.proto_layer(latent_target)
+                prediction = self.target_model.predictor(proto_distances_target)
+
+                self.loss_transfer_samples, _ = self.loss_pred(prediction, yb_source)
+                print(f'transfer source {self.epoch}: {self.loss_transfer_samples}')
+                self.loss_transfer_samples.backward()
+                self.optim_transfer_samples.step()
+                self.optim_transfer_samples.zero_grad()
+
+
+                # Train on few-shot labelled target batch
+                input_, recon_image, prediction, _, _ = self.target_model(xb_label)
+
+                self.loss_target_label, target_label_accuracy = self.loss_pred(prediction, yb_label)
+                print(f'labelled target {self.epoch}: {self.loss_target_label} and acc {target_label_accuracy}')
+                self.loss_target_label.backward()
+                self.optim_target_label.step()
+                self.optim_target_label.zero_grad()
+
+                label_loss_history.append(self.loss_target_label)
+                label_acc_history.append(target_label_accuracy)
+
+
+                # Train transfer layer
+                recon_target_proto = self.transfer_layer(self.source_model.proto_layer.prototypes)
+                self.loss_transfer_layer = self.loss_recon(recon_target_proto, self.target_model.proto_layer.prototypes)
+                print(f'transfer layer {self.epoch}: {self.loss_transfer_layer}')
+                self.loss_transfer_layer.backward()
+
+                self.optim_transfer_layer.step()
+                self.optim_transfer_layer.zero_grad()
+
+            self.epoch += 1
+
+        print(label_loss_history)
+        print(label_acc_history)
+        print(yb_label.bincount())
+
+    def fit_epoch_based(self, source_train_dl, target_train_dl):
         """
         Trains on source samples to optimize prototypes + transition + decoder?
 
