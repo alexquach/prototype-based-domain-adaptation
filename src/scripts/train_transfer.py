@@ -45,7 +45,7 @@ model_2 = ProtoModel(proto_model_config_2, LEARNING_RATE)
 model_1 = ProtoModel.load_model("mnist_linear_1.pth", proto_model_config_1, LEARNING_RATE)
 
 tm = TransferModel(model_1, model_2, epochs=20)
-tm.fit_interleave(mnist_train_dl, svhn_train_dl)
+tm.fit_batch_interleave(mnist_train_dl, svhn_train_dl)
 
 res = tm.evaluate(svhn_test_dl)
 print(res)

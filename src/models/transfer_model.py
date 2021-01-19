@@ -45,7 +45,7 @@ class TransferModel(nn.Module):
         self.to(self.dev)
 
 
-    def fit_interleave(self, source_train_dl, target_train_dl):
+    def fit_batch_interleave(self, source_train_dl, target_train_dl):
         """
         Trains on source samples to optimize prototypes + transition + decoder?
 
@@ -91,20 +91,6 @@ class TransferModel(nn.Module):
                 self.optim_transfer_samples.step()
                 self.optim_transfer_samples.zero_grad()
 
-
-                # Train on few-shot labelled target batch
-                input_, recon_image, prediction, _, _ = self.target_model(xb_label)
-
-                self.loss_target_label, target_label_accuracy = self.loss_pred(prediction, yb_label)
-                print(f'labelled target {self.epoch}: {self.loss_target_label} and acc {target_label_accuracy}')
-                self.loss_target_label.backward()
-                self.optim_target_label.step()
-                self.optim_target_label.zero_grad()
-
-                label_loss_history.append(self.loss_target_label)
-                label_acc_history.append(target_label_accuracy)
-
-
                 # Train transfer layer
                 recon_target_proto = self.transfer_layer(self.source_model.proto_layer.prototypes)
                 self.loss_transfer_layer = self.loss_recon(recon_target_proto, self.target_model.proto_layer.prototypes)
@@ -113,6 +99,16 @@ class TransferModel(nn.Module):
 
                 self.optim_transfer_layer.step()
                 self.optim_transfer_layer.zero_grad()
+
+            for i in range(100):
+                # Train on few-shot labelled target batch
+                input_, recon_image, prediction, _, _ = self.target_model(xb_label)
+
+                self.loss_target_label, target_label_accuracy = self.loss_pred(prediction, yb_label)
+                print(f'labelled target {self.epoch}: {self.loss_target_label} and acc {target_label_accuracy}')
+                self.loss_target_label.backward()
+                self.optim_target_label.step()
+                self.optim_target_label.zero_grad()
 
             self.epoch += 1
 
@@ -126,6 +122,9 @@ class TransferModel(nn.Module):
 
             eval_loss, eval_acc = self.loss_pred(eval_prediction, yb_evaluate)
             print(f'evaluation {self.epoch}: {eval_loss} and acc {eval_acc}')
+
+            label_loss_history.append(self.loss_target_label)
+            label_acc_history.append(target_label_accuracy)
             eval_loss_history.append(eval_loss)
             eval_acc_history.append(eval_acc)
 
