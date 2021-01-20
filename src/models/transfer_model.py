@@ -24,6 +24,13 @@ class TransferModel(nn.Module):
             self.transfer_layer_2,
         )
 
+        # TODO: Use an adaptive weighting
+        self.weight_target_unlabel = 1
+        self.weight_transfer_samples = 1
+        self.weight_target_label = 0.01
+        self.weight_transfer_layer = 1
+
+
         # Optimizers
         self.optim_target_unlabel = optim.Adam([
             *self.target_model.parameters(),
@@ -40,14 +47,100 @@ class TransferModel(nn.Module):
             *self.transfer_layer_2.parameters(),
         ])
 
+        self.optim_combined = optim.Adam([
+            *self.target_model.parameters(),
+            *self.transfer_layer_1.parameters(),
+            *self.transfer_layer_2.parameters(),
+        ])
+
         self.true_reconstruction = target_model.decoder(target_model.proto_layer.prototypes)
 
         self.to(self.dev)
 
+    def fit_combined_loss(self, source_train_dl, target_train_dl):
+        """
+        Trains using a combined loss for simultaneous optimization
+
+        """
+        label_loss_history = []
+        label_acc_history = []
+        eval_loss_history = []
+        eval_acc_history = []
+
+        # TODO: Check for even distribution of labelled examples
+        xb_label, yb_label = next(iter(target_train_dl))
+        xb_label = xb_label.to(self.dev)
+        yb_label = yb_label.to(self.dev)
+
+        while self.epoch < self.epochs:
+            self.train()    
+
+            # Loop over target_train and source_train datasets
+            for (xb_target_unlabel, _), (xb_source, yb_source) in zip(target_train_dl, source_train_dl):
+                xb_target_unlabel = xb_target_unlabel.to(self.dev)
+                xb_source = xb_source.to(self.dev)
+                yb_source = yb_source.to(self.dev)
+
+                # Train on unlabelled target
+                input_, recon_image, _, _, _ = self.target_model(xb_target_unlabel)
+                self.loss_target_unlabel = self.loss_recon(input_, recon_image)
+                print(f'unlabelled target {self.epoch}: {self.loss_target_unlabel}')
+
+                # Train on transfered source
+                latent_source = self.source_model.encoder(xb_source)
+                latent_target = self.transfer_layer(latent_source)
+                proto_distances_target, _ = self.target_model.proto_layer(latent_target)
+                prediction = self.target_model.predictor(proto_distances_target)
+                self.loss_transfer_samples, _ = self.loss_pred(prediction, yb_source)
+                print(f'transfer source {self.epoch}: {self.loss_transfer_samples}')
+
+                # Train transfer layer
+                recon_target_proto = self.transfer_layer(self.source_model.proto_layer.prototypes)
+                self.loss_transfer_layer = self.loss_recon(recon_target_proto, self.target_model.proto_layer.prototypes)
+                print(f'transfer layer {self.epoch}: {self.loss_transfer_layer}')
+
+                # Train on few-shot labelled target batch
+                input_, recon_image, prediction, _, _ = self.target_model(xb_label)
+                self.loss_target_label, target_label_accuracy = self.loss_pred(prediction, yb_label)
+                print(f'labelled target {self.epoch}: {self.loss_target_label} and acc {target_label_accuracy}')
+
+                # calculate combined loss
+                self.loss_combined = self.weight_target_unlabel * self.loss_target_unlabel +\
+                                     self.weight_transfer_samples * self.loss_transfer_samples +\
+                                     self.weight_target_label * self.loss_target_label +\
+                                     self.weight_transfer_layer * self.loss_transfer_layer
+                self.loss_combined.backward()
+
+                self.optim_combined.step()
+                self.optim_combined.zero_grad()
+
+            self.epoch += 1
+
+            # calculate evaluate loss per epoch
+            self.eval()
+            xb_evaluate, yb_evaluate = next(iter(target_train_dl))
+            xb_evaluate = xb_evaluate.to(self.dev)
+            yb_evaluate = yb_evaluate.to(self.dev)
+
+            _, _, eval_prediction, _, _ = self.target_model(xb_evaluate)
+
+            eval_loss, eval_acc = self.loss_pred(eval_prediction, yb_evaluate)
+            print(f'evaluation {self.epoch}: {eval_loss} and acc {eval_acc}')
+
+            label_loss_history.append(self.loss_target_label)
+            label_acc_history.append(target_label_accuracy)
+            eval_loss_history.append(eval_loss)
+            eval_acc_history.append(eval_acc)
+
+        print(f'train_loss: {label_loss_history}')
+        print(f'train_acc: {label_acc_history}')
+        print(f'eval_loss: {eval_loss_history}')
+        print(f'eval_acc: {eval_acc_history}')
+        print(f'label_bincount: {yb_label.bincount()}')
 
     def fit_batch_interleave(self, source_train_dl, target_train_dl):
         """
-        Trains on source samples to optimize prototypes + transition + decoder?
+        Trains each componenet by interleaving optimization by batches
 
         """
         label_loss_history = []
@@ -136,7 +229,7 @@ class TransferModel(nn.Module):
 
     def fit_epoch_based(self, source_train_dl, target_train_dl):
         """
-        Trains on source samples to optimize prototypes + transition + decoder?
+        Trains each componenet in 4 distinct parts per epoch
 
         """
         label_loss_history = []
