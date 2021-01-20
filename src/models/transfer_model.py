@@ -148,7 +148,7 @@ class TransferModel(nn.Module):
         print(f'train_acc: {label_acc_history}')
         print(f'eval_loss: {eval_loss_history}')
         print(f'eval_acc: {eval_acc_history}')
-        print(f'label_bincount: {yb_label.bincount()}')
+        print(f'label_bincount: {yb_target_label.bincount()}')
 
     def fit_batch_interleave(self, source_train_dl, target_train_dl):
         """
