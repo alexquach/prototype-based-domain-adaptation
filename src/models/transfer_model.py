@@ -83,7 +83,7 @@ class TransferModel(nn.Module):
         eval_acc_history = []
 
         # TODO: Check for even distribution of labelled examples
-        xb_target_label, yb_target_label = next(iter(target_train_dl))
+        xb_target_label, yb_target_label = TransferModel.get_uniform_batch(target_train_dl)
         xb_target_label = xb_target_label.to(self.dev)
         yb_target_label = yb_target_label.to(self.dev)
 
@@ -389,9 +389,32 @@ class TransferModel(nn.Module):
         return loaded_model
 
     @staticmethod
-    def get_uniform_batch(dataloader):
-        # TODO: Complete this
-        return
+    def get_uniform_batch(dataloader, num_classes=10):
+        xb, yb = next(iter(dataloader))
+        batch_size = xb.shape[0]
+        samples_per_class = (int)(batch_size/num_classes)
+
+        counter = np.zeros(num_classes)
+        result_x = None
+        result_y = None
+
+        while any(counter!=samples_per_class):
+            xb, yb = next(iter(dataloader))
+            for x, y in zip(xb, yb):
+                x = x[None, :]
+                y = y.view(1)
+                if counter[y] != samples_per_class:
+                    if result_x is None:
+                        result_x = x
+                        result_y = y
+                    else:
+                        result_x = torch.cat((result_x, x))
+                        result_y = torch.cat((result_y, y))
+                    counter[y] = counter[y] + 1
+                if all(counter==samples_per_class):
+                    continue
+
+        return result_x, result_y
 
     def visualize_prototypes(self, path_name=None):
         """ Visualizes the prototypes of both source and target models """
