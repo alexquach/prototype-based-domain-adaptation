@@ -25,9 +25,9 @@ class TransferModel(nn.Module):
         )
 
         # TODO: Use an adaptive weighting
-        self.weight_target_unlabel = 1
+        self.weight_target_unlabel = 0.1
         self.weight_transfer_samples = 1
-        self.weight_target_label = 0.01
+        self.weight_target_label = 0.0001
         self.weight_transfer_layer = 1
 
 
@@ -127,7 +127,7 @@ class TransferModel(nn.Module):
             eval_loss, eval_acc = self.loss_pred(eval_prediction, yb_evaluate)
             print(f'evaluation {self.epoch}: {eval_loss} and acc {eval_acc}')
 
-            label_loss_history.append(self.loss_target_label)
+            label_loss_history.append(self.loss_combined)
             label_acc_history.append(target_label_accuracy)
             eval_loss_history.append(eval_loss)
             eval_acc_history.append(eval_acc)
