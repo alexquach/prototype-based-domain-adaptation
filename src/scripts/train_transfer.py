@@ -33,30 +33,36 @@ NUM_EPOCHS = 20
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
-# load MNIST data
-mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
-svhn_train_dl, svhn_test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True)
+def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weights=(1, 1, 1, 1)):
 
-# create ProtoModel
-model_1 = ProtoModel(proto_model_config_1, LEARNING_RATE)
-model_2 = ProtoModel(proto_model_config_2, LEARNING_RATE)
+    # load MNIST data
+    mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
+    svhn_train_dl, svhn_test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True)
 
-# assume pre-trained source model
-model_1 = ProtoModel.load_model("mnist_linear_1.pth", proto_model_config_1, LEARNING_RATE)
+    # create ProtoModel
+    model_1 = ProtoModel(proto_model_config_1, LEARNING_RATE)
+    model_2 = ProtoModel(proto_model_config_2, LEARNING_RATE)
 
-tm = TransferModel(model_1, model_2, epochs=20)
-tm.fit_combined_loss(mnist_train_dl, svhn_train_dl)
+    # assume pre-trained source model
+    model_1 = ProtoModel.load_model("mnist_linear_1.pth", proto_model_config_1, LEARNING_RATE)
 
-res = tm.evaluate(svhn_test_dl)
-print(res)
+    tm = TransferModel(model_1, model_2, epochs=epochs, weights=weights)
 
-tm.save_model("tm_loss_opt_1.pth")
+    if train_new:
+        tm.fit_combined_loss(mnist_train_dl, svhn_train_dl)
+    else:
+        tm = TransferModel.load_model(f"{model_name}.pth", model_1, model_2)
+
+    res = tm.evaluate(svhn_test_dl)
+    print(res)
+
+    tm.visualize_prototypes(f"{model_name}_proto.jpg")
+    tm.visualize_samples(mnist_train_dl, svhn_train_dl, f"{model_name}_sample.jpg")
+    print(f"weights: {weights}")
+
+    if save_model:
+        tm.save_model(f"{model_name}.pth")
 
 
-# train_new = True
-# if train_new:
-#     model_1.fit(NUM_EPOCHS, mnist_train_dl, visualize_sample_name=None)
-#     model_2.fit(NUM_EPOCHS, svhn_train_dl, visualize_sample_name=None)
-# else:
-#     model_1 = ProtoModel.load_model("mnist_1.pth", proto_model_config_1, LEARNING_RATE)
-#     model_2 = ProtoModel.load_model("svhn_conv.pth", proto_model_config_2, LEARNING_RATE)
+if __name__ == "__main__": 
+    train("tm_loss_opt")

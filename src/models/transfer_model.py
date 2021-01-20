@@ -4,10 +4,11 @@ import torch.nn.functional as F
 from torch import optim
 import numpy as np
 
+from models.proto_model import ProtoModel
 from utils.plotting import plot_rows_of_images
 
 class TransferModel(nn.Module):
-    def __init__(self, source_model, target_model, epochs=10):
+    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1)):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
@@ -25,11 +26,7 @@ class TransferModel(nn.Module):
         )
 
         # TODO: Use an adaptive weighting
-        self.weight_target_unlabel = 0.1
-        self.weight_transfer_samples = 1
-        self.weight_target_label = 0.0001
-        self.weight_transfer_layer = 1
-
+        self.weight_target_unlabel, self.weight_transfer_samples, self.weight_target_label, self.weight_transfer_layer = weights
 
         # Optimizers
         self.optim_target_unlabel = optim.Adam([
@@ -57,6 +54,24 @@ class TransferModel(nn.Module):
 
         self.to(self.dev)
 
+    def forward(self, xb_target_unlabel, xb_source, xb_target_label):
+        # 1. Get reconstruction for unlabelled target
+        input_target_unlabel, recon_target_unlabel, _, _, _ = self.target_model(xb_target_unlabel)
+
+        # 2. Get prediction for transfer source
+        latent_source = self.source_model.encoder(xb_source)
+        latent_target = self.transfer_layer(latent_source)
+        proto_distances_target, _ = self.target_model.proto_layer(latent_target)
+        prediction_source = self.target_model.predictor(proto_distances_target)
+        
+        # 3. Get reconstruction prototype from source prototype
+        recon_target_proto = self.transfer_layer(self.source_model.proto_layer.prototypes)
+        
+        # 4. Get reconstruction and prediction from labelled target
+        input_target_label, recon_target_label, prediction_target_label, _, _ = self.target_model(xb_target_label)
+
+        return input_target_unlabel, recon_target_unlabel, prediction_source, recon_target_proto, input_target_label, recon_target_label, prediction_target_label
+
     def fit_combined_loss(self, source_train_dl, target_train_dl):
         """
         Trains using a combined loss for simultaneous optimization
@@ -68,9 +83,9 @@ class TransferModel(nn.Module):
         eval_acc_history = []
 
         # TODO: Check for even distribution of labelled examples
-        xb_label, yb_label = next(iter(target_train_dl))
-        xb_label = xb_label.to(self.dev)
-        yb_label = yb_label.to(self.dev)
+        xb_target_label, yb_target_label = next(iter(target_train_dl))
+        xb_target_label = xb_target_label.to(self.dev)
+        yb_target_label = yb_target_label.to(self.dev)
 
         while self.epoch < self.epochs:
             self.train()    
@@ -81,34 +96,31 @@ class TransferModel(nn.Module):
                 xb_source = xb_source.to(self.dev)
                 yb_source = yb_source.to(self.dev)
 
-                # Train on unlabelled target
-                input_, recon_image, _, _, _ = self.target_model(xb_target_unlabel)
-                self.loss_target_unlabel = self.loss_recon(input_, recon_image)
-                print(f'unlabelled target {self.epoch}: {self.loss_target_unlabel}')
+                # Forward pass for all components
+                input_target_unlabel, recon_target_unlabel, prediction_source, recon_target_proto, input_target_label,\
+                    recon_target_label, prediction_target_label = self.forward(xb_target_unlabel, xb_source, xb_target_label)
+                
+                # 1. Loss on unlabelled target
+                loss_target_unlabel = self.loss_recon(input_target_unlabel, recon_target_unlabel)
+                print(f'unlabelled target {self.epoch}: {loss_target_unlabel}')
 
-                # Train on transfered source
-                latent_source = self.source_model.encoder(xb_source)
-                latent_target = self.transfer_layer(latent_source)
-                proto_distances_target, _ = self.target_model.proto_layer(latent_target)
-                prediction = self.target_model.predictor(proto_distances_target)
-                self.loss_transfer_samples, _ = self.loss_pred(prediction, yb_source)
-                print(f'transfer source {self.epoch}: {self.loss_transfer_samples}')
+                # 2. Loss on transfered source
+                loss_transfer_samples, _ = self.loss_pred(prediction_source, yb_source)
+                print(f'transfer source {self.epoch}: {loss_transfer_samples}')
 
-                # Train transfer layer
-                recon_target_proto = self.transfer_layer(self.source_model.proto_layer.prototypes)
-                self.loss_transfer_layer = self.loss_recon(recon_target_proto, self.target_model.proto_layer.prototypes)
-                print(f'transfer layer {self.epoch}: {self.loss_transfer_layer}')
+                # 3. Loss transfer layer
+                loss_transfer_layer = self.loss_recon(recon_target_proto, self.target_model.proto_layer.prototypes)
+                print(f'transfer layer {self.epoch}: {loss_transfer_layer}')
 
-                # Train on few-shot labelled target batch
-                input_, recon_image, prediction, _, _ = self.target_model(xb_label)
-                self.loss_target_label, target_label_accuracy = self.loss_pred(prediction, yb_label)
-                print(f'labelled target {self.epoch}: {self.loss_target_label} and acc {target_label_accuracy}')
+                # 4. Loss on few-shot labelled target batch
+                loss_target_label, target_label_accuracy = self.loss_pred(prediction_target_label, yb_target_label)
+                print(f'labelled target {self.epoch}: {loss_target_label} and acc {target_label_accuracy}')
 
                 # calculate combined loss
-                self.loss_combined = self.weight_target_unlabel * self.loss_target_unlabel +\
-                                     self.weight_transfer_samples * self.loss_transfer_samples +\
-                                     self.weight_target_label * self.loss_target_label +\
-                                     self.weight_transfer_layer * self.loss_transfer_layer
+                self.loss_combined = self.weight_target_unlabel * loss_target_unlabel +\
+                                     self.weight_transfer_samples * loss_transfer_samples +\
+                                     self.weight_target_label * loss_target_label +\
+                                     self.weight_transfer_layer * loss_transfer_layer
                 self.loss_combined.backward()
 
                 self.optim_combined.step()
@@ -350,20 +362,60 @@ class TransferModel(nn.Module):
         torch.save({
             'epoch': self.epoch,
             'model_state_dict': self.state_dict(),
+            'loss_weights': (self.weight_target_unlabel, self.weight_transfer_samples, self.weight_target_label, self.weight_transfer_layer)
             }, path_name)
 
     @staticmethod
-    def load_model(path_name, config, learning_rate):
+    def load_model(path_name, model_1, model_2):
         """
         Note:
             If used for inference, make sure to set model.eval()
         """
         print(f'Loading model from {path_name}')
-        checkpoint = torch.load(path_name)
+        if torch.cuda.is_available():
+            checkpoint = torch.load(path_name)
+        else:
+            checkpoint = torch.load(path_name, map_location=torch.device('cpu'))
 
-        loaded_model = TransferModel(config, learning_rate)
+        # configure loss weights if exist
+        if checkpoint['loss_weights']:
+            loaded_model = TransferModel(model_1, model_2, weights=checkpoint['loss_weights'])
+        else:
+            loaded_model = TransferModel(model_1, model_2)
 
         loaded_model.load_state_dict(checkpoint['model_state_dict'])
         loaded_model.epoch = checkpoint['epoch']
 
         return loaded_model
+
+    @staticmethod
+    def get_uniform_batch(dataloader):
+        # TODO: Complete this
+        return
+
+    def visualize_prototypes(self, path_name=None):
+        """ Visualizes the prototypes of both source and target models """
+
+        source_proto = self.source_model.decoder(self.source_model.proto_layer.prototypes)
+        target_proto = self.target_model.decoder(self.target_model.proto_layer.prototypes)
+
+        plot_rows_of_images([source_proto, target_proto], path_name)
+    
+    def visualize_samples(self, source_dl, target_dl, path_name=None):
+        """ Visualizes the prototypes of both source and target models """
+        xb_source, _ = next(iter(source_dl))
+        xb_target, _ = next(iter(target_dl))
+        xb_source = xb_source.to(self.dev)[:10]
+        xb_target = xb_target.to(self.dev)[:10]
+
+        # latent side
+        latent_source = self.source_model.encoder(xb_source)
+        latent_target = self.target_model.encoder(xb_target)
+        transfered_source = self.transfer_layer(latent_source)
+
+        # reconstructions
+        recon_source = self.source_model.decoder(latent_source)
+        recon_target = self.target_model.decoder(latent_target)
+        recon_transfered_source = self.target_model.decoder(transfered_source)
+
+        plot_rows_of_images([recon_source, recon_target, recon_transfered_source], path_name)
