@@ -54,6 +54,8 @@ class ProtoModel(nn.Module):
 
         self.optim = optim.Adam(self.parameters(), lr=learning_rate)
 
+        self.to(self.dev)
+
     def process_activation(self, activation, layers):
         if activation:
             if isinstance(activation, Iterable):
