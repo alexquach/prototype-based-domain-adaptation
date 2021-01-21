@@ -34,7 +34,7 @@ class LatentTransition(nn.Module):
 
         self.to(self.dev)
 
-    def fit(self, source_train_dl):
+    def fit(self):
         """
         Learns a linear mapping between source and target prototypes
 

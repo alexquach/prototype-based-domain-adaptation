@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from data_parsing import load_mnist, load_svhn
 from models.proto_model import ProtoModel
+from models.latent_transition import LatentTransition
 
 proto_model_config_1 = {
     "input_dim": 784,
@@ -66,19 +67,19 @@ def train(model_name_1, model_name_2, epochs=NUM_EPOCHS, train_new=True, save_mo
     model_2.visualize_prototypes(path_name=f"{model_name_2}_proto.jpg")
     # model_2.visualize_sample(mnist_test_dl, path_name="svhn_mnist_sample.jpg")
     # model_2.visualize_sample(svhn_test_dl, path_name="svhn_svhn_sample.jpg")
+    # Save model
+    if save_model:
+        model_1.save_model(f"{model_name_1}.pth")
+        model_2.save_model(f"{model_name_2}.pth")
 
     latent_transition = LatentTransition(model_1, model_2)
-    latent_transition.fit(source_train_dl)
+    latent_transition.fit()
 
     # lt.visualize_transformed_source_prototype("mnist_svhn_proto.jpg")
     # lt.visualize_sample(mnist_test_dl, "mnist_svhn_sample.jpg")
     eval_ = lt.evaluate(mnist_test_dl)
     print(eval_)
 
-    # Save model
-    if save_model:
-        model_1.save_model(f"{model_name_1}.pth")
-        model_2.save_model(f"{model_name_2}.pth")
 
 if __name__ == "__main__": 
-    train("mnist_linear", "svhn_conv", train_new=True)
+    train("mnist_linear", "svhn_conv", train_new=True, save_model=True)
