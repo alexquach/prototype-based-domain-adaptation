@@ -14,41 +14,49 @@ class LatentTransition(nn.Module):
         self.target_model = target_model
         self.epoch = 0
         self.epochs = epochs
-        self.linear_layer_1 = nn.Linear(source_model.latent_dim, 256)
-        self.linear_layer_2 = nn.Linear(256, target_model.latent_dim)
-        self.transition_model = nn.Sequential(
-            self.linear_layer_1,
-            nn.ReLU(),
-            self.linear_layer_2
-        )
+        # self.linear_layer_1 = nn.Linear(source_model.latent_dim, 256)
+        # self.linear_layer_2 = nn.Linear(256, target_model.latent_dim)
+        # self.transition_model = nn.Sequential(
+        #     self.linear_layer_1,
+        #     nn.ReLU(),
+        #     self.linear_layer_2
+        # )
+
+        self.linear_transition = nn.Linear(source_model.latent_dim, target_model.latent_dim)
         self.optim = optim.Adam([
-            *self.linear_layer_1.parameters(),
-            *self.linear_layer_2.parameters(),
+            *self.linear_transition.parameters()
         ])
+        # self.optim = optim.Adam([
+        #     *self.linear_layer_1.parameters(),
+        #     *self.linear_layer_2.parameters(),
+        # ])
         self.true_reconstruction = target_model.decoder(target_model.proto_layer.prototypes)
 
         self.to(self.dev)
 
     def fit(self, source_train_dl):
         """
-        Trains on source samples to optimize prototypes + transition + decoder?
+        Learns a linear mapping between source and target prototypes
 
         """
         while self.epoch < self.epochs:
             self.train()
-            for xb, yb in source_train_dl:
-                xb = xb.to(self.dev)
-                yb = yb.to(self.dev)
-                latent_source = self.source_model.encoder(xb)
-                prediction = self.__call__(latent_source)
-                
-                self.loss_val, _ = self.loss_func(prediction, yb)
-                print(f'{self.epoch} + {self.loss_val}')
 
-                self.loss_val.backward()
+            for i in range(100):
+                transformed_source = self.linear_transition(self.source_model.proto_layer.prototypes)
+                
+                transformed_target = (self.target_model.proto_layer.prototypes - self.linear_transition.bias) * self.linear_transition.bias.T
+
+                loss_source = F.mse_loss(transformed_source, self.source_model.proto_layer.prototypes)
+                loss_target = F.mse_loss(transformed_target, self.target_model.proto_layer.prototypes)
+
+                print(f'{self.epoch} + {loss_source} + {loss_target}')
+                loss_source.backward()
+                loss_target.backward()
 
                 self.optim.step()
                 self.optim.zero_grad()
+
             self.epoch += 1
 
     def forward(self, latent_source):
