@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch import optim
 import numpy as np
 
+from models.proto_model import ProtoModel
 from utils.plotting import plot_rows_of_images
 
 class LatentTransition(nn.Module):
@@ -22,9 +23,9 @@ class LatentTransition(nn.Module):
         #     self.linear_layer_2
         # )
 
-        self.linear_transition = nn.Linear(source_model.latent_dim, target_model.latent_dim)
+        self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
         self.optim = optim.Adam([
-            *self.linear_transition.parameters()
+            *self.transition_model.parameters()
         ])
         # self.optim = optim.Adam([
         #     *self.linear_layer_1.parameters(),
@@ -43,20 +44,34 @@ class LatentTransition(nn.Module):
             self.train()
 
             for i in range(100):
-                transformed_source = self.linear_transition(self.source_model.proto_layer.prototypes)
+                transformed_source = self.transition_model(self.source_model.proto_layer.prototypes)
+                transformed_target = (self.target_model.proto_layer.prototypes - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
+
+                source_proto_dist, source_feature_dist = self.source_model.proto_layer(transformed_source)
+                source_min_proto_dist = ProtoModel.get_min(source_proto_dist)
+                source_min_feature_dist = ProtoModel.get_min(source_feature_dist)
+
+                target_proto_dist, target_feature_dist = self.target_model.proto_layer(transformed_target)
+                target_min_proto_dist = ProtoModel.get_min(target_proto_dist)
+                target_min_feature_dist = ProtoModel.get_min(target_feature_dist)
                 
-                transformed_target = (self.target_model.proto_layer.prototypes - self.linear_transition.bias) * self.linear_transition.bias.T
 
                 loss_source = F.mse_loss(transformed_source, self.source_model.proto_layer.prototypes)
                 loss_target = F.mse_loss(transformed_target, self.target_model.proto_layer.prototypes)
+                loss_alignment = source_min_proto_dist.mean() + source_min_feature_dist.mean() + target_min_proto_dist.mean() + target_min_feature_dist.mean()
 
-                print(f'{self.epoch} + {loss_source} + {loss_target}')
+                print(f'{self.epoch} + {loss_source} + {loss_target} + {loss_alignment}')
+                loss_alignment.backward(retain_graph=True)
                 loss_source.backward()
                 loss_target.backward()
 
                 self.optim.step()
                 self.optim.zero_grad()
 
+            print(source_min_proto_dist)
+            print(source_min_feature_dist)
+            print(target_min_proto_dist)
+            print(target_min_feature_dist)
             self.epoch += 1
 
     def forward(self, latent_source):
@@ -154,7 +169,7 @@ class LatentTransition(nn.Module):
 
     def visualize_transformed_source_prototype(self, path_name):
         """ Encoded by source_model, Converted by latent_transition, Decoded by target_model """
-        transformed_prototype, _, _ = self.__call__(self.source_model.proto_layer.prototypes)
+        transformed_prototype, _, _ = self.forward_recons(self.source_model.proto_layer.prototypes)
         true_decoded = self.target_model.decoder(self.target_model.proto_layer.prototypes)
 
         print(F.mse_loss(transformed_prototype, true_decoded).mean())

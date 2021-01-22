@@ -8,7 +8,6 @@ from collections.abc import Iterable
 
 from models.proto_layer import ProtoLayer
 from models.predictor import Predictor
-from models.latent_transition import LatentTransition
 from utils.plotting import plot_rows_of_images
 
 class Lambda(nn.Module):
@@ -347,7 +346,10 @@ class ProtoModel(nn.Module):
             If used for inference, make sure to set model.eval()
         """
         print(f'Loading model from {path_name}')
-        checkpoint = torch.load(path_name)
+        if torch.cuda.is_available():
+            checkpoint = torch.load(path_name)
+        else:
+            checkpoint = torch.load(path_name, map_location=torch.device('cpu'))
 
         loaded_model = ProtoModel(config, learning_rate)
 
@@ -375,9 +377,9 @@ class ProtoModel(nn.Module):
     def visualize_prototypes(self, path_name=None, show=True):
         self.visualize_latent(self.proto_layer.prototypes, path_name, show)
     
-    def generate_latent_transition(self, target_model, source_train_dl):
-        latent_transition = LatentTransition(self, target_model)
-        latent_transition.test_decoder_visualization("before_decoder_train.jpg")
-        latent_transition.fit(source_train_dl)
-        latent_transition.test_decoder_visualization("after_decoder_train.jpg")
-        return latent_transition
+    # def generate_latent_transition(self, target_model, source_train_dl):
+    #     latent_transition = LatentTransition(self, target_model)
+    #     latent_transition.test_decoder_visualization("before_decoder_train.jpg")
+    #     latent_transition.fit(source_train_dl)
+    #     latent_transition.test_decoder_visualization("after_decoder_train.jpg")
+    #     return latent_transition

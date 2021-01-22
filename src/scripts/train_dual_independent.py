@@ -51,7 +51,7 @@ def train(model_name_1, model_name_2, epochs=NUM_EPOCHS, train_new=True, save_mo
         model_2 = ProtoModel.load_model(f"{model_name_2}.pth", proto_model_config_2, LEARNING_RATE)
 
     # generate test loss metrics
-    evaluate_models = True
+    evaluate_models = False
     if evaluate_models:
         train_losses = model_1.evaluate(mnist_train_dl)
         print(train_losses)
@@ -67,19 +67,19 @@ def train(model_name_1, model_name_2, epochs=NUM_EPOCHS, train_new=True, save_mo
     model_2.visualize_prototypes(path_name=f"{model_name_2}_proto.jpg")
     # model_2.visualize_sample(mnist_test_dl, path_name="svhn_mnist_sample.jpg")
     # model_2.visualize_sample(svhn_test_dl, path_name="svhn_svhn_sample.jpg")
+
+    lt = LatentTransition(model_1, model_2, epochs=NUM_EPOCHS)
+    lt.fit()
+
+    lt.visualize_transformed_source_prototype("mnist_svhn_proto.jpg")
+    # lt.visualize_sample(mnist_test_dl, "mnist_svhn_sample.jpg")
+    eval_ = lt.evaluate(mnist_test_dl)
+    print(eval_)
+
     # Save model
     if save_model:
         model_1.save_model(f"{model_name_1}.pth")
         model_2.save_model(f"{model_name_2}.pth")
 
-    latent_transition = LatentTransition(model_1, model_2)
-    latent_transition.fit()
-
-    # lt.visualize_transformed_source_prototype("mnist_svhn_proto.jpg")
-    # lt.visualize_sample(mnist_test_dl, "mnist_svhn_sample.jpg")
-    eval_ = lt.evaluate(mnist_test_dl)
-    print(eval_)
-
-
 if __name__ == "__main__": 
-    train("mnist_linear", "svhn_conv", train_new=True, save_model=True)
+    train("mnist_linear", "svhn_conv", train_new=False, save_model=True)
