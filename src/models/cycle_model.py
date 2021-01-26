@@ -60,7 +60,7 @@ class CycleModel(nn.Module):
 
         # inverse linear transfer (target -> source)
         transfer_latent_target = self.transition_model(transfer_latent_source)
-        transfer_recon_target = self.source_model.decoder(transfer_latent_target)
+        transfer_recon_target = self.target_model.decoder(transfer_latent_target)
 
         return xb_target, transfer_recon_target, prediction_target
 
