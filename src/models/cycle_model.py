@@ -49,7 +49,7 @@ class CycleModel(nn.Module):
         return xb_source, transfer_recon_source, prediction_source
 
     def forward_target(self, xb_target):
-        latent_target = self.source_model.encoder(xb_target)
+        latent_target = self.target_model.encoder(xb_target)
         latent_source = (latent_target - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
 
         proto_distances_target, _ = self.target_model.proto_layer(latent_target)
@@ -139,7 +139,7 @@ class CycleModel(nn.Module):
     def loss_recon(self, input_, recon_image):
         return F.mse_loss(input_.view(input_.shape[0], -1), recon_image).mean()
 
-    def evaluate(self, target_test_dl):
+    def evaluate(self, target_test_dl, eval_model=None):
         """ Evaluates the classification loss for the target test dataset
 
         """
@@ -150,7 +150,10 @@ class CycleModel(nn.Module):
                 xb = xb.to(self.dev)
                 yb = yb.to(self.dev)
 
-                input_, recon_image, prediction, _, _ = self.target_model(xb)
+                if eval_model:
+                    input_, recon_image, prediction, _, _ = eval_model(xb)
+                else:
+                    input_, recon_image, prediction, _, _ = self.target_model(xb)
 
                 single_row = len(xb), *self.loss_pred(prediction, yb)
                 if batch_results is None:
@@ -177,7 +180,8 @@ class CycleModel(nn.Module):
         torch.save({
             'epoch': self.epoch,
             'model_state_dict': self.state_dict(),
-            'loss_weights': (self.weight_recon_source, self.weight_recon_target)
+            'loss_weights': (self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
+                            self.weight_autoencode_target, self.weight_class_source, self.weight_class_target)
             }, path_name)
 
     @staticmethod

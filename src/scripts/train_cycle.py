@@ -29,11 +29,11 @@ proto_model_config_2 = {
 }
 
 # Hyperparameters
-NUM_EPOCHS = 10
+NUM_EPOCHS = 1
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
-def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weights=(1,1,1,1,1,0)):
+def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weights=(1,1,1,1,1,1)):
 
     # load MNIST data
     mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
@@ -52,6 +52,8 @@ def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weight
 
     res = cm.evaluate(svhn_test_dl)
     print(res)
+    res = cm.evaluate(mnist_test_dl, cm.source_model)
+    print(res)
 
     cm.visualize_prototypes(f"{model_name}_proto.jpg")
     cm.visualize_samples(mnist_train_dl, svhn_train_dl, f"{model_name}_sample.jpg")
@@ -62,4 +64,4 @@ def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weight
 
 
 if __name__ == "__main__": 
-    train("cm_class_mnist")
+    train("cm_class_both", train_new=False)
