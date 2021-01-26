@@ -8,7 +8,7 @@ from models.proto_model import ProtoModel
 from utils.plotting import plot_rows_of_images
 
 class CycleModel(nn.Module):
-    def __init__(self, source_model, target_model, epochs=10, weights=(1,1)):
+    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1)):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
@@ -20,7 +20,8 @@ class CycleModel(nn.Module):
         # Currently using linear
         self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
 
-        self.weight_recon_source, self.weight_recon_target = weights
+        self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
+            self.weight_autoencode_target = weights
 
         self.optim = optim.Adam([
             *self.source_model.parameters(),
@@ -65,6 +66,15 @@ class CycleModel(nn.Module):
 
         return xb_target, transfer_recon_target
 
+    def autoencode(self, xb_source, xb_target):
+        latent_source = self.source_model.encoder(xb_source)
+        latent_target = self.target_model.encoder(xb_target)
+
+        recon_source = self.source_model.decoder(latent_source)
+        recon_target = self.target_model.decoder(latent_target)
+
+        return xb_source, recon_source, xb_target, recon_target
+
     def fit_combined_loss(self, source_train_dl, target_train_dl):
         """
         Trains using a combined loss for simultaneous optimization
@@ -91,9 +101,17 @@ class CycleModel(nn.Module):
                 loss_recon_target = self.loss_recon(xb_target, recon_target)
                 print(f'transfer target {self.epoch}: {loss_recon_target}')
 
+                # 3 + 4. Loss on autoencoded 
+                _, autoencode_source, _, autoencode_target = self.autoencode(xb_source, xb_target) 
+                loss_autoencode_source = self.loss_recon(xb_source, autoencode_source)
+                loss_autoencode_target = self.loss_recon(xb_target, autoencode_target)
+                print(f'autoencode {self.epoch}: {loss_autoencode_source} + {loss_autoencode_target}')
+
                 # calculate combined loss
                 self.loss_combined = self.weight_recon_source * loss_recon_source +\
-                                     self.weight_recon_target * loss_recon_target
+                                     self.weight_recon_target * loss_recon_target +\
+                                     self.weight_autoencode_source * loss_autoencode_source +\
+                                     self.weight_autoencode_target * loss_autoencode_target
                 self.loss_combined.backward()
 
                 self.optim.step()
