@@ -5,7 +5,7 @@ from torch import optim
 import numpy as np
 
 from models.proto_model import ProtoModel
-from utils.plotting import plot_rows_of_images
+from utils.plotting import plot_rows_of_images, plot_latent
 
 class LatentTransition(nn.Module):
     def __init__(self, source_model, target_model, epochs=10):
@@ -15,17 +15,27 @@ class LatentTransition(nn.Module):
         self.target_model = target_model
         self.epoch = 0
         self.epochs = epochs
-        # self.linear_layer_1 = nn.Linear(source_model.latent_dim, 256)
-        # self.linear_layer_2 = nn.Linear(256, target_model.latent_dim)
-        # self.transition_model = nn.Sequential(
-        #     self.linear_layer_1,
-        #     nn.ReLU(),
-        #     self.linear_layer_2
-        # )
+
+        # forward
+        self.linear_layer_1 = nn.Linear(source_model.latent_dim, 256)
+        self.linear_layer_2 = nn.Linear(256, target_model.latent_dim)
+        self.transition_model = nn.Sequential(
+            self.linear_layer_1,
+            nn.ReLU(),
+            self.linear_layer_2
+        )
+
+        # backward
+        self.inverse_transition_model = nn.Sequential(
+            nn.Linear(target_model.latent_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, source_model.latent_dim)
+        )
 
         self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
         self.optim = optim.Adam([
-            *self.transition_model.parameters()
+            *self.transition_model.parameters(),
+            *self.inverse_transition_model.parameters()
         ])
         # self.optim = optim.Adam([
         #     *self.linear_layer_1.parameters(),
@@ -43,9 +53,10 @@ class LatentTransition(nn.Module):
         while self.epoch < self.epochs:
             self.train()
 
-            for i in range(100):
+            for i in range(500):
                 transformed_source = self.transition_model(self.source_model.proto_layer.prototypes)
-                transformed_target = (self.target_model.proto_layer.prototypes - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
+                # transformed_target = (self.target_model.proto_layer.prototypes - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
+                transformed_target = self.inverse_transition_model(self.target_model.proto_layer.prototypes)
 
                 source_proto_dist, source_feature_dist = self.source_model.proto_layer(transformed_source)
                 source_min_proto_dist = ProtoModel.get_min(source_proto_dist)
@@ -58,7 +69,7 @@ class LatentTransition(nn.Module):
 
                 loss_source = F.mse_loss(transformed_source, self.source_model.proto_layer.prototypes)
                 loss_target = F.mse_loss(transformed_target, self.target_model.proto_layer.prototypes)
-                loss_alignment = source_min_proto_dist.mean() + source_min_feature_dist.mean() + target_min_proto_dist.mean() + target_min_feature_dist.mean()
+                loss_alignment = 0.01 * (source_min_proto_dist.mean() + source_min_feature_dist.mean() + target_min_proto_dist.mean() + target_min_feature_dist.mean())
 
                 print(f'{self.epoch} + {loss_source} + {loss_target} + {loss_alignment}')
                 loss_alignment.backward(retain_graph=True)
@@ -169,12 +180,15 @@ class LatentTransition(nn.Module):
 
     def visualize_transformed_source_prototype(self, path_name):
         """ Encoded by source_model, Converted by latent_transition, Decoded by target_model """
+        transformed_latent = self.transition_model(self.source_model.proto_layer.prototypes)
         transformed_prototype, _, _ = self.forward_recons(self.source_model.proto_layer.prototypes)
         true_decoded = self.target_model.decoder(self.target_model.proto_layer.prototypes)
 
+        print(F.mse_loss(transformed_latent, self.target_model.proto_layer.prototypes))
         print(F.mse_loss(transformed_prototype, true_decoded).mean())
 
-        plot_rows_of_images([transformed_prototype], path_name)
+        plot_rows_of_images([transformed_prototype], path_name)        
+        plot_rows_of_images([true_decoded], "supposed_decoded.jpg")        
 
     def visualize_sample(self, test_dl, path_name, num_samples=10):
         input_, labels = next(iter(test_dl))
@@ -186,3 +200,6 @@ class LatentTransition(nn.Module):
         reconstructions = self.target_model.decoder(latent_target)
 
         plot_rows_of_images([input_, reconstructions], path_name)
+
+    def visualize_latent(self, latent, labels=None, savepath=None):
+        plot_latent(latent, labels, savepath=savepath)

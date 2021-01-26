@@ -72,6 +72,9 @@ def train(model_name_1, model_name_2, epochs=NUM_EPOCHS, train_new=True, save_mo
     lt.fit()
 
     lt.visualize_transformed_source_prototype("mnist_svhn_proto.jpg")
+    lt.visualize_latent(model_1.proto_layer.prototypes, range(10), f"{model_name_1}_latent.jpg")
+    lt.visualize_latent(model_2.proto_layer.prototypes, range(10), f"{model_name_1}_latent.jpg")
+    lt.visualize_latent(lt.transition_model(model_1.proto_layer.prototypes), range(10), f"{model_name_1}_transfer_latent_nonlinear.jpg")
     # lt.visualize_sample(mnist_test_dl, "mnist_svhn_sample.jpg")
     eval_ = lt.evaluate(mnist_test_dl)
     print(eval_)

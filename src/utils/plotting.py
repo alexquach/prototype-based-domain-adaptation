@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import gridspec
+from sklearn.decomposition import PCA
 
 def plot_single_img(img, ax=None, savepath=None):
     side_length = int(np.sqrt(img.shape[1]))
@@ -36,3 +37,41 @@ def plot_rows_of_images(images, savepath=None, show=True):
     if show:
         plt.show()
     plt.close('all')
+
+def plot_latent(latent, coloring_labels=None, num_to_plot=500, ax=None, coloring_name='digit', savepath=None):
+    plot_in_color = coloring_labels is not None
+    encodings = latent[-num_to_plot:]
+    latent_arr = encodings.detach().numpy()
+    pca = None
+
+    if latent_arr.shape[1] > 2:
+        pca = PCA(n_components=2)
+        pca.fit(latent_arr)
+        transformed = pca.transform(latent_arr)
+    else:
+        transformed = latent_arr
+
+    x = transformed[:, 0]
+    y = transformed[:, 1]
+
+    use_new_base_fig = ax is None
+    if use_new_base_fig:
+        fig, ax = plt.subplots()
+    if plot_in_color:
+        colors = coloring_labels[-num_to_plot:]
+        num_labels = np.max(colors) - np.min(colors)
+        color_map_name = 'coolwarm' if num_labels == 1 else 'RdBu'
+        cmap = plt.get_cmap(color_map_name, num_labels + 1)
+        pcm = ax.scatter(x, y, s=20, marker='o', c=colors, cmap=cmap, vmin=np.min(colors) - 0.5, vmax=np.max(colors) + 0.5)
+        if use_new_base_fig:
+            min_tick = 0
+            max_tick = 10 if np.max(colors) > 2 else 2
+            fig.colorbar(pcm, ax=ax, ticks=np.arange(min_tick, max_tick))
+    else:
+        pcm = ax.scatter(x, y, s=20, marker='o', c='gray')
+    if use_new_base_fig:
+        ax.set_title('Encodings colored by ' + coloring_name)
+        plt.show()
+    if savepath:
+        plt.savefig(savepath)
+    return pca, pcm
