@@ -84,8 +84,10 @@ class CycleModel(nn.Module):
 
             # Loop over target_train and source_train datasets
             for (xb_target, yb_target), (xb_source, yb_source) in zip(target_train_dl, source_train_dl):
-                xb_target = xb_target.to(self.dev)
                 xb_source = xb_source.to(self.dev)
+                xb_target = xb_target.to(self.dev)
+                yb_source = yb_source.to(self.dev)
+                yb_target = yb_target.to(self.dev)
 
                 # Forward pass for all components
                 _, recon_source, prediction_source = self.forward_source(xb_source)
