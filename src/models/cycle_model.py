@@ -8,7 +8,7 @@ from models.proto_model import ProtoModel
 from utils.plotting import plot_rows_of_images
 
 class CycleModel(nn.Module):
-    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1)):
+    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1)):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
@@ -21,7 +21,7 @@ class CycleModel(nn.Module):
         self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
 
         self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
-            self.weight_autoencode_target = weights
+            self.weight_autoencode_target, self.weight_class_source, self.weight_class_target = weights
 
         self.optim = optim.Adam([
             *self.source_model.parameters(),
@@ -29,16 +29,15 @@ class CycleModel(nn.Module):
             *self.transition_model.parameters()
         ])
 
-
         self.to(self.dev)
 
     def forward_source(self, xb_source):
         latent_source = self.source_model.encoder(xb_source)
         latent_target = self.transition_model(latent_source)
 
-        # TODO: Use class accuracy later
-        # proto_distances_target, _ = self.target_model.proto_layer(latent_target)
-        # prediction_source = self.target_model.predictor(proto_distances_target)
+        # Get prediction from source
+        proto_distances_source, _ = self.source_model.proto_layer(latent_source)
+        prediction_source = self.source_model.predictor(proto_distances_source)
         
         transfer_recon_target = self.target_model.decoder(latent_target)
         transfer_latent_target = self.target_model.encoder(transfer_recon_target)
@@ -47,15 +46,14 @@ class CycleModel(nn.Module):
         transfer_latent_source = (transfer_latent_target - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
         transfer_recon_source = self.source_model.decoder(transfer_latent_source)
 
-        return xb_source, transfer_recon_source
+        return xb_source, transfer_recon_source, prediction_source
 
     def forward_target(self, xb_target):
         latent_target = self.source_model.encoder(xb_target)
         latent_source = (latent_target - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
 
-        # TODO: Use class accuracy later
-        # proto_distances_target, _ = self.target_model.proto_layer(latent_target)
-        # prediction_source = self.target_model.predictor(proto_distances_target)
+        proto_distances_target, _ = self.target_model.proto_layer(latent_target)
+        prediction_target = self.target_model.predictor(proto_distances_target)
         
         transfer_recon_source = self.source_model.decoder(latent_source)
         transfer_latent_source = self.source_model.encoder(transfer_recon_source)
@@ -64,7 +62,7 @@ class CycleModel(nn.Module):
         transfer_latent_target = self.transition_model(transfer_latent_source)
         transfer_recon_target = self.source_model.decoder(transfer_latent_target)
 
-        return xb_target, transfer_recon_target
+        return xb_target, transfer_recon_target, prediction_target
 
     def autoencode(self, xb_source, xb_target):
         latent_source = self.source_model.encoder(xb_source)
@@ -85,13 +83,13 @@ class CycleModel(nn.Module):
             self.train()    
 
             # Loop over target_train and source_train datasets
-            for (xb_target, _), (xb_source, _) in zip(target_train_dl, source_train_dl):
+            for (xb_target, yb_target), (xb_source, yb_source) in zip(target_train_dl, source_train_dl):
                 xb_target = xb_target.to(self.dev)
                 xb_source = xb_source.to(self.dev)
 
                 # Forward pass for all components
-                _, recon_source = self.forward_source(xb_source)
-                _, recon_target = self.forward_target(xb_target)
+                _, recon_source, prediction_source = self.forward_source(xb_source)
+                _, recon_target, prediction_target = self.forward_target(xb_target)
 
                 # 1. Loss on transfered source
                 loss_recon_source = self.loss_recon(xb_source, recon_source)
@@ -107,11 +105,19 @@ class CycleModel(nn.Module):
                 loss_autoencode_target = self.loss_recon(xb_target, autoencode_target)
                 print(f'autoencode {self.epoch}: {loss_autoencode_source} + {loss_autoencode_target}')
 
+                # 5 + 6. Loss on straight-through classification error
+                loss_class_source, acc_source = self.loss_pred(prediction_source, yb_source)
+                loss_class_target, acc_target = self.loss_pred(prediction_target, yb_target)
+                print(f'class loss {self.epoch}: {loss_class_source} + {loss_class_target}')
+                print(f'class acc {self.epoch}: {acc_source} + {acc_target}')
+
                 # calculate combined loss
                 self.loss_combined = self.weight_recon_source * loss_recon_source +\
                                      self.weight_recon_target * loss_recon_target +\
                                      self.weight_autoencode_source * loss_autoencode_source +\
-                                     self.weight_autoencode_target * loss_autoencode_target
+                                     self.weight_autoencode_target * loss_autoencode_target +\
+                                     self.weight_class_source * loss_class_source +\
+                                     self.weight_class_target * loss_class_target
                 self.loss_combined.backward()
 
                 self.optim.step()

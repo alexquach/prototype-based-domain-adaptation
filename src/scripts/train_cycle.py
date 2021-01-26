@@ -33,7 +33,7 @@ NUM_EPOCHS = 10
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
-def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weights=(1,1,1,1)):
+def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weights=(1,1,1,1,1,0)):
 
     # load MNIST data
     mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
@@ -62,4 +62,4 @@ def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weight
 
 
 if __name__ == "__main__": 
-    train("cm_auto_recon")
+    train("cm_class_mnist")
