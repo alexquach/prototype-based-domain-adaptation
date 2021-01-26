@@ -226,7 +226,7 @@ class CycleModel(nn.Module):
         recon_source = self.source_model.decoder(latent_source)
         recon_target = self.target_model.decoder(latent_target)
 
-        _, recon_transfer_source = self.forward_source(xb_source)
-        _, recon_transfer_target = self.forward_target(xb_target)
+        _, recon_transfer_source, _ = self.forward_source(xb_source)
+        _, recon_transfer_target, _ = self.forward_target(xb_target)
 
         plot_rows_of_images([xb_source, xb_target, recon_source, recon_target, recon_transfer_source, recon_transfer_target], path_name)
