@@ -58,7 +58,7 @@ class CycleModel(nn.Module):
 
         # inverse linear transfer (target -> source)
         #transfer_latent_source = (transfer_latent_target - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
-        transfer_latent_source = self.inverse_transition_model(transfer_latent_source)
+        transfer_latent_source = self.inverse_transition_model(transfer_latent_target)
         transfer_recon_source = self.source_model.decoder(transfer_latent_source)
 
         return xb_source, transfer_recon_source, prediction_source
