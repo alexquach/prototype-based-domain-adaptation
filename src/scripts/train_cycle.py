@@ -46,13 +46,13 @@ def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weight
     cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights)
 
     if train_new:
-        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl)
+        cm.fit_combined_loss(svhn_train_dl, mnist_train_dl)
     else:
         cm = CycleModel.load_model(f"{model_name}.pth", model_1, model_2)
 
-    res = cm.evaluate(svhn_test_dl)
+    res = cm.evaluate(svhn_test_dl, cm.source_model)
     print(res)
-    res = cm.evaluate(mnist_test_dl, cm.source_model)
+    res = cm.evaluate(mnist_test_dl, cm.target_model)
     print(res)
 
     cm.visualize_prototypes(f"{model_name}_proto.jpg")
@@ -64,4 +64,4 @@ def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weight
 
 
 if __name__ == "__main__": 
-    train("cm_class_both", train_new=False)
+    train("cm_swap", train_new=False)
