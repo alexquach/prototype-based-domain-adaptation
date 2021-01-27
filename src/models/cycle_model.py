@@ -17,8 +17,21 @@ class CycleModel(nn.Module):
         self.epochs = epochs
 
         # Transfer layer
-        # Currently using linear
-        self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
+        # # Currently using linear
+        # self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
+
+        self.transition_model = nn.Sequential(
+            nn.Linear(source_model.latent_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, target_model.latent_dim)
+        )
+
+        # backward
+        self.inverse_transition_model = nn.Sequential(
+            nn.Linear(target_model.latent_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, source_model.latent_dim)
+        )
 
         self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target = weights
@@ -26,7 +39,8 @@ class CycleModel(nn.Module):
         self.optim = optim.Adam([
             *self.source_model.parameters(),
             *self.target_model.parameters(),
-            *self.transition_model.parameters()
+            *self.transition_model.parameters(),
+            *self.inverse_transition_model.parameters()
         ])
 
         self.to(self.dev)
@@ -43,14 +57,16 @@ class CycleModel(nn.Module):
         transfer_latent_target = self.target_model.encoder(transfer_recon_target)
 
         # inverse linear transfer (target -> source)
-        transfer_latent_source = (transfer_latent_target - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
+        #transfer_latent_source = (transfer_latent_target - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
+        transfer_latent_source = self.inverse_transition_model(transfer_latent_source)
         transfer_recon_source = self.source_model.decoder(transfer_latent_source)
 
         return xb_source, transfer_recon_source, prediction_source
 
     def forward_target(self, xb_target):
         latent_target = self.target_model.encoder(xb_target)
-        latent_source = (latent_target - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
+        #latent_source = (latent_target - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T))
+        latent_source = self.inverse_transition_model(latent_target)
 
         proto_distances_target, _ = self.target_model.proto_layer(latent_target)
         prediction_target = self.target_model.predictor(proto_distances_target)
