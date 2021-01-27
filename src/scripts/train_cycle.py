@@ -14,7 +14,7 @@ proto_model_config_1 = {
     "recon_activation": nn.Sigmoid(),
     "num_prototypes": 10,
     "num_classes": 10,
-    "use_convolution": False
+    "use_convolution": True
 }
 
 proto_model_config_2 = {
@@ -29,7 +29,7 @@ proto_model_config_2 = {
 }
 
 # Hyperparameters
-NUM_EPOCHS = 1
+NUM_EPOCHS = 10
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 

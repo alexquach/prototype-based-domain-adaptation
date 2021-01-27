@@ -66,9 +66,9 @@ class CycleModel(nn.Module):
 
     def autoencode(self, xb_source, xb_target):
         latent_source = self.source_model.encoder(xb_source)
-        latent_target = self.target_model.encoder(xb_target)
-
         recon_source = self.source_model.decoder(latent_source)
+
+        latent_target = self.target_model.encoder(xb_target)
         recon_target = self.target_model.decoder(latent_target)
 
         return xb_source, recon_source, xb_target, recon_target
