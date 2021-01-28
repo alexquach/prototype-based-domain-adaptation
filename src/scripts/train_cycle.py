@@ -14,7 +14,7 @@ proto_model_config_1 = {
     "recon_activation": nn.Sigmoid(),
     "num_prototypes": 10,
     "num_classes": 10,
-    "use_convolution": True
+    "use_convolution": False
 }
 
 proto_model_config_2 = {
@@ -33,15 +33,16 @@ NUM_EPOCHS = 10
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
-def train(model_name, epochs=NUM_EPOCHS, train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1)):
+def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config_2, epochs=NUM_EPOCHS,\
+          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1)):
 
     # load MNIST data
     mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
     svhn_train_dl, svhn_test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True)
 
     # create ProtoModel
-    model_1 = ProtoModel(proto_model_config_1, LEARNING_RATE)
-    model_2 = ProtoModel(proto_model_config_2, LEARNING_RATE)
+    model_1 = ProtoModel(config_1, LEARNING_RATE)
+    model_2 = ProtoModel(config_2, LEARNING_RATE)
 
     cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights)
 
