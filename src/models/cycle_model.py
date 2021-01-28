@@ -35,7 +35,7 @@ class CycleModel(nn.Module):
 
         self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\
-            self.proto_close_to_weight, self.close_to_proto_weight, self.loss_class_transition = weights
+            self.proto_close_to_weight, self.close_to_proto_weight, self.weight_class_transition = weights
 
         self.optim = optim.Adam([
             *self.source_model.parameters(),
@@ -216,7 +216,7 @@ class CycleModel(nn.Module):
             'model_state_dict': self.state_dict(),
             'loss_weights': (self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
                             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\
-                            self.proto_close_to_weight, self.close_to_proto_weight, self.loss_class_transition)
+                            self.proto_close_to_weight, self.close_to_proto_weight, self.weight_class_transition)
             }, path_name)
 
     @staticmethod
