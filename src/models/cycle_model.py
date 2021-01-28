@@ -8,7 +8,7 @@ from models.proto_model import ProtoModel
 from utils.plotting import plot_rows_of_images
 
 class CycleModel(nn.Module):
-    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,1,1)):
+    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1)):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
@@ -70,7 +70,7 @@ class CycleModel(nn.Module):
         return self.forward_base(xb_source, self.source_model, self.target_model, self.transition_model, self.inverse_transition_model)
 
     def forward_target(self, xb_target):
-        return self.forward_base(xb_target, self.target_model, self.source_model, self.inverse_transition_model, self.transition_model))
+        return self.forward_base(xb_target, self.target_model, self.source_model, self.inverse_transition_model, self.transition_model)
 
     def autoencode(self, xb_source, xb_target):
         latent_source = self.source_model.encoder(xb_source)
