@@ -34,7 +34,7 @@ BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
 def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config_2, epochs=NUM_EPOCHS,\
-          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1)):
+          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1)):
 
     # load MNIST data
     mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)

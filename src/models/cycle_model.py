@@ -8,7 +8,7 @@ from models.proto_model import ProtoModel
 from utils.plotting import plot_rows_of_images
 
 class CycleModel(nn.Module):
-    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1)):
+    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1)):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
@@ -35,7 +35,7 @@ class CycleModel(nn.Module):
 
         self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\
-            self.proto_close_to_weight, self.close_to_proto_weight = weights
+            self.proto_close_to_weight, self.close_to_proto_weight, self.loss_class_transition = weights
 
         self.optim = optim.Adam([
             *self.source_model.parameters(),
@@ -71,6 +71,16 @@ class CycleModel(nn.Module):
 
     def forward_target(self, xb_target):
         return self.forward_base(xb_target, self.target_model, self.source_model, self.inverse_transition_model, self.transition_model)
+
+    def predict_cross_domain(self, xb_source):
+        """ Takes in source data and converts it to target prediction via transition model + predictor """
+        latent_source = self.source_model.encoder(xb_source)
+        latent_target = self.transition_model(latent_source)
+        proto_dist_target, _ = self.target_model.proto_layer(latent_target)
+        prediction = self.target_model.predictor(proto_dist_target)
+
+        return prediction
+
 
     def autoencode(self, xb_source, xb_target):
         latent_source = self.source_model.encoder(xb_source)
@@ -129,6 +139,11 @@ class CycleModel(nn.Module):
                 print(f'proto dist {self.epoch}: {loss_proto_dist_source} + {loss_proto_dist_target}')
                 print(f'feat dist {self.epoch}: {loss_feature_dist_source} + {loss_feature_dist_target}')
 
+                # 9. Loss on fake data from transitioning source training data to target domain
+                prediction_transition = self.predict_cross_domain(xb_source)
+                loss_class_transition, acc_transition = self.loss_pred(prediction_transition, yb_source)
+                print(f'transition loss/acc {self.epoch}: {loss_class_transition} + {acc_transition}')
+
                 # calculate combined loss
                 self.loss_combined = self.weight_recon_source * loss_recon_source +\
                                      self.weight_recon_target * loss_recon_target +\
@@ -137,7 +152,8 @@ class CycleModel(nn.Module):
                                      self.weight_class_source * loss_class_source +\
                                      self.weight_class_target * loss_class_target +\
                                      self.proto_close_to_weight * (loss_proto_dist_source + loss_proto_dist_target) +\
-                                     self.close_to_proto_weight * (loss_feature_dist_source + loss_feature_dist_target)
+                                     self.close_to_proto_weight * (loss_feature_dist_source + loss_feature_dist_target) +\
+                                     self.weight_class_transition * loss_class_transition
                 self.loss_combined.backward()
 
                 self.optim.step()
@@ -200,7 +216,7 @@ class CycleModel(nn.Module):
             'model_state_dict': self.state_dict(),
             'loss_weights': (self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
                             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\
-                            self.proto_close_to_weight, self.close_to_proto_weight)
+                            self.proto_close_to_weight, self.close_to_proto_weight, self.loss_class_transition)
             }, path_name)
 
     @staticmethod
