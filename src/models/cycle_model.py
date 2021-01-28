@@ -7,6 +7,14 @@ import numpy as np
 from models.proto_model import ProtoModel
 from utils.plotting import plot_rows_of_images
 
+class Lambda(nn.Module):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def forward(self, x):
+        return self.func(x)
+
 class CycleModel(nn.Module):
     def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1)):
         super().__init__()
@@ -17,21 +25,22 @@ class CycleModel(nn.Module):
         self.epochs = epochs
 
         # Transfer layer
-        # # Currently using linear
-        # self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
+        # Currently using linear
+        self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
+        self.inverse_transition_model = Lambda(lambda x: (x - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T)))
 
-        self.transition_model = nn.Sequential(
-            nn.Linear(source_model.latent_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, target_model.latent_dim)
-        )
+        # self.transition_model = nn.Sequential(
+        #     nn.Linear(source_model.latent_dim, 256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, target_model.latent_dim)
+        # )
 
-        # backward
-        self.inverse_transition_model = nn.Sequential(
-            nn.Linear(target_model.latent_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, source_model.latent_dim)
-        )
+        # # backward
+        # self.inverse_transition_model = nn.Sequential(
+        #     nn.Linear(target_model.latent_dim, 256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, source_model.latent_dim)
+        # )
 
         self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\
