@@ -55,8 +55,8 @@ class CycleModel(nn.Module):
 
         self.optim_transition = optim.Adam([
             self.target_model.proto_layer.prototypes,
-            self.transition_model.parameters(),
-            self.inverse_transition_model.parameters(),
+            *self.transition_model.parameters(),
+            *self.inverse_transition_model.parameters(),
         ])
 
         self.to(self.dev)
@@ -156,11 +156,6 @@ class CycleModel(nn.Module):
                 print(f'proto dist {self.epoch}: {loss_proto_dist_source} + {loss_proto_dist_target}')
                 print(f'feat dist {self.epoch}: {loss_feature_dist_source} + {loss_feature_dist_target}')
 
-                # 9. Loss on fake data from transitioning source training data to target domain
-                prediction_transition = self.predict_cross_domain(xb_source)
-                loss_class_transition, acc_transition = self.loss_pred(prediction_transition, yb_source)
-                print(f'transition loss/acc {self.epoch}: {loss_class_transition} + {acc_transition}')
-
                 # calculate combined loss
                 self.loss_combined = self.weight_recon_source * loss_recon_source +\
                                      self.weight_recon_target * loss_recon_target +\
@@ -170,17 +165,21 @@ class CycleModel(nn.Module):
                                      self.weight_class_target * loss_class_target +\
                                      self.proto_close_to_weight * (loss_proto_dist_source + loss_proto_dist_target) +\
                                      self.close_to_proto_weight * (loss_feature_dist_source + loss_feature_dist_target)
-                self.loss_combined.backward()
+                self.loss_combined.backward(retain_graph=True)
 
                 self.optim.step()
                 self.optim.zero_grad()
                 
+                # 9. Loss on fake data from transitioning source training data to target domain
+                prediction_transition = self.predict_cross_domain(xb_source)
+                loss_class_transition, acc_transition = self.loss_pred(prediction_transition, yb_source)
+                print(f'transition loss/acc {self.epoch}: {loss_class_transition} + {acc_transition}')
+
                 loss_transition = self.weight_class_transition * loss_class_transition
                 loss_transition.backward()
 
                 self.optim_transition.step()
                 self.optim_transition.zero_grad()
-
 
             self.epoch += 1
 
