@@ -53,11 +53,11 @@ class CycleModel(nn.Module):
             *self.inverse_transition_model.parameters()
         ])
 
-        # self.optim_transition = optim.Adam([
-        #     self.target_model.proto_layer.prototypes,
-        #     self.transition_model.parameters(),
-        #     self.inverse_transition_model.parameters(),
-        # ])
+        self.optim_transition = optim.Adam([
+            self.target_model.proto_layer.prototypes,
+            self.transition_model.parameters(),
+            self.inverse_transition_model.parameters(),
+        ])
 
         self.to(self.dev)
 
@@ -169,12 +169,18 @@ class CycleModel(nn.Module):
                                      self.weight_class_source * loss_class_source +\
                                      self.weight_class_target * loss_class_target +\
                                      self.proto_close_to_weight * (loss_proto_dist_source + loss_proto_dist_target) +\
-                                     self.close_to_proto_weight * (loss_feature_dist_source + loss_feature_dist_target) +\
-                                     self.weight_class_transition * loss_class_transition
+                                     self.close_to_proto_weight * (loss_feature_dist_source + loss_feature_dist_target)
                 self.loss_combined.backward()
 
                 self.optim.step()
                 self.optim.zero_grad()
+                
+                loss_transition = self.weight_class_transition * loss_class_transition
+                loss_transition.backward()
+
+                self.optim_transition.step()
+                self.optim_transition.zero_grad()
+
 
             self.epoch += 1
 

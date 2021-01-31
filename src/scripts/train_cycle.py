@@ -58,7 +58,7 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
 
     cm.visualize_prototypes(f"{model_name}_proto.jpg")
     cm.visualize_samples(mnist_train_dl, svhn_train_dl, f"{model_name}_sample.jpg")
-    print(f"weights: {weights}")
+    print(f"weights: {weights} {train_frac}")
 
     if save_model:
         cm.save_model(f"{model_name}.pth")
