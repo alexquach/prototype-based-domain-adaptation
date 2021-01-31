@@ -34,11 +34,11 @@ BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
 def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config_2, epochs=NUM_EPOCHS,\
-          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1)):
+          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1), train_frac=1):
 
     # load MNIST data
     mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
-    svhn_train_dl, svhn_test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True)
+    svhn_train_dl, svhn_test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True, training_fraction=train_frac)
 
     # create ProtoModel
     model_1 = ProtoModel(config_1, LEARNING_RATE)
@@ -65,4 +65,4 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
 
 
 if __name__ == "__main__": 
-    train("cm_class_both", train_new=True)
+    train("cm_class_both", train_new=True, train_frac=0.1)

@@ -53,6 +53,12 @@ class CycleModel(nn.Module):
             *self.inverse_transition_model.parameters()
         ])
 
+        # self.optim_transition = optim.Adam([
+        #     self.target_model.proto_layer.prototypes,
+        #     self.transition_model.parameters(),
+        #     self.inverse_transition_model.parameters(),
+        # ])
+
         self.to(self.dev)
 
     def forward_base(self, xb_1, model_1, model_2, transition, inverse_transition):
@@ -64,7 +70,7 @@ class CycleModel(nn.Module):
         min_proto_dist_1 = ProtoModel.get_min(proto_distances_1)
         min_feature_dist_1 = ProtoModel.get_min(feature_distances_1)
         prediction_1 = model_1.predictor(proto_distances_1)
-        
+
         transfer_recon_2 = model_2.decoder(latent_2)
         transfer_latent_2 = model_2.encoder(transfer_recon_2)
 
@@ -85,7 +91,9 @@ class CycleModel(nn.Module):
         """ Takes in source data and converts it to target prediction via transition model + predictor """
         latent_source = self.source_model.encoder(xb_source)
         latent_target = self.transition_model(latent_source)
-        proto_dist_target, _ = self.target_model.proto_layer(latent_target)
+        transfer_recon_target = self.target_model.decoder(latent_target)
+        transfer_latent_target = self.target_model.encoder(transfer_recon_target)
+        proto_dist_target, _ = self.target_model.proto_layer(transfer_latent_target)
         prediction = self.target_model.predictor(proto_dist_target)
 
         return prediction
