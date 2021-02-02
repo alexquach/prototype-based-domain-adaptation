@@ -5,7 +5,7 @@ from torch import optim
 import numpy as np
 
 from models.proto_model import ProtoModel
-from utils.plotting import plot_rows_of_images
+from utils.plotting import plot_rows_of_images, plot_latent
 
 class Lambda(nn.Module):
     def __init__(self, func):
@@ -296,3 +296,30 @@ class CycleModel(nn.Module):
         _, recon_transfer_target, _, _, _ = self.forward_target(xb_target)
 
         plot_rows_of_images([xb_source, xb_target, recon_source, recon_target, recon_transfer_source, recon_transfer_target], path_name)
+
+    def visualize_prototypes_2d(self, root_savepath=None):
+        """ 
+        Note:
+            Savepath should not include the extension (.jpg, .png)
+
+        Plots the following:
+            1. Source Prototypes
+            2. Target Prototypes
+            3. Transition Target (Source -> Target) Prototypes
+            4. Transition Source (Target -> Source) Prototypes
+            5. Recon Source (S -> T -> S) Prototypes
+            6. Recon Target (T -> S -> T) Prototypes
+        """
+        source = self.source_model.proto_layer.prototypes
+        target = self.target_model.proto_layer.prototypes
+        transition_target = self.transition_model(source)
+        transition_source = self.inverse_transition_model(target)
+        recon_source = self.inverse_transition_model(transition_target)
+        recon_target = self.transition_model(transition_source)
+
+        plot_latent(source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_source.jpg")
+        plot_latent(target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_target.jpg")
+        plot_latent(transition_target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_transition_target.jpg")
+        plot_latent(transition_source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_transition_source.jpg")
+        plot_latent(recon_source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_recon_source.jpg")
+        plot_latent(recon_target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_recon_target.jpg")
