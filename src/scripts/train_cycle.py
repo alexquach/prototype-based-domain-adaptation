@@ -36,7 +36,7 @@ LEARNING_RATE = 0.001
 # torch.autograd.set_detect_anomaly(True)
 
 def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config_2, epochs=NUM_EPOCHS,\
-          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1), train_frac=1):
+          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1), train_frac=1, nonlinear_transition=False):
 
     # load MNIST data
     mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
@@ -46,7 +46,7 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
     model_1 = ProtoModel(config_1, LEARNING_RATE)
     model_2 = ProtoModel(config_2, LEARNING_RATE)
 
-    cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights)
+    cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights, nonlinear_transition=nonlinear_transition)
 
     if train_new:
         cm.fit_combined_loss(mnist_train_dl, svhn_train_dl)
@@ -60,11 +60,11 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
 
     cm.visualize_prototypes(f"{model_name}_proto.jpg")
     cm.visualize_samples(mnist_train_dl, svhn_train_dl, f"{model_name}_sample.jpg")
-    print(f"weights: {weights} {train_frac}")
+    print(f"weights: {weights} {train_frac} {'nonlinear' if nonlinear_transition else 'linear'}")
 
     if save_model:
         cm.save_model(f"{model_name}.pth")
 
 
 if __name__ == "__main__": 
-    train("cm_class_both", train_new=True, train_frac=0.1)
+    train("cm_class_both", train_new=True, train_frac=1, nonlinear_transition=True)

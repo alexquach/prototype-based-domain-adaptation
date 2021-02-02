@@ -16,31 +16,31 @@ class Lambda(nn.Module):
         return self.func(x)
 
 class CycleModel(nn.Module):
-    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1)):
+    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1), nonlinear_transition=False):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
         self.target_model = target_model
+        self.nonlinear_transition = nonlinear_transition
         self.epoch = 0
         self.epochs = epochs
 
         # Transfer layer
-        # Currently using linear
-        self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
-        self.inverse_transition_model = Lambda(lambda x: (x - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T)))
+        if nonlinear_transition:
+            self.transition_model = nn.Sequential(
+                nn.Linear(source_model.latent_dim, 256),
+                nn.ReLU(),
+                nn.Linear(256, target_model.latent_dim)
+            )
 
-        # self.transition_model = nn.Sequential(
-        #     nn.Linear(source_model.latent_dim, 256),
-        #     nn.ReLU(),
-        #     nn.Linear(256, target_model.latent_dim)
-        # )
-
-        # # backward
-        # self.inverse_transition_model = nn.Sequential(
-        #     nn.Linear(target_model.latent_dim, 256),
-        #     nn.ReLU(),
-        #     nn.Linear(256, source_model.latent_dim)
-        # )
+            self.inverse_transition_model = nn.Sequential(
+                nn.Linear(target_model.latent_dim, 256),
+                nn.ReLU(),
+                nn.Linear(256, source_model.latent_dim)
+            )
+        else:
+            self.transition_model = nn.Linear(source_model.latent_dim, target_model.latent_dim)
+            self.inverse_transition_model = Lambda(lambda x: (x - self.transition_model.bias).matmul(torch.inverse(self.transition_model.weight.T)))
 
         self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\

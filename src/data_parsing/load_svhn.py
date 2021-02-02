@@ -19,7 +19,7 @@ def load_svhn_dataloader(bs=64, greyscale=False, training_fraction=None):
     train_ds = SVHN("data/svhn", split='train', transform=transform, download=True)
     test_ds = SVHN("data/svhn", split='test', transform=transform, download=True)
 
-    if training_fraction:
+    if training_fraction is not None:
         last_idx = (int) (training_fraction * len(train_ds))
         train_dl = DataLoader(train_ds, batch_size=bs, sampler=SubsetRandomSampler(range(last_idx)))
     else:
