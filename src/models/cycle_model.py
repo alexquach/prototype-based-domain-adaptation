@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
 
 from models.proto_model import ProtoModel
 from utils.plotting import plot_rows_of_images, plot_latent
@@ -317,9 +319,24 @@ class CycleModel(nn.Module):
         recon_source = self.inverse_transition_model(transition_target)
         recon_target = self.transition_model(transition_source)
 
-        plot_latent(source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_source.jpg")
-        plot_latent(target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_target.jpg")
-        plot_latent(transition_target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_transition_target.jpg")
-        plot_latent(transition_source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_transition_source.jpg")
-        plot_latent(recon_source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_recon_source.jpg")
-        plot_latent(recon_target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_recon_target.jpg")
+        fig = plt.figure(figsize=(15, 10))
+        gs = gridspec.GridSpec(3, 2)
+
+        list_to_be_plotted = [source, target, transition_target, transition_source, recon_source, recon_target]
+
+        for i in range(3):
+            for j in range(2):
+                new_ax = plt.subplot(gs[i, j])
+
+                plot_latent(list_to_be_plotted[i*2 + j], range(10), ax=new_ax)
+
+        plt.show()
+        if root_savepath:
+            plt.savefig(root_savepath + "_proto_2d.jpg")
+
+        # plot_latent(source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_source.jpg")
+        # plot_latent(target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_target.jpg")
+        # plot_latent(transition_target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_transition_target.jpg")
+        # plot_latent(transition_source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_transition_source.jpg")
+        # plot_latent(recon_source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_recon_source.jpg")
+        # plot_latent(recon_target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_recon_target.jpg")
