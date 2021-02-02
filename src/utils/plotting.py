@@ -41,7 +41,7 @@ def plot_rows_of_images(images, savepath=None, show=True):
 def plot_latent(latent, coloring_labels=None, num_to_plot=500, ax=None, coloring_name='digit', savepath=None):
     plot_in_color = coloring_labels is not None
     encodings = latent[-num_to_plot:]
-    latent_arr = encodings.detach().numpy()
+    latent_arr = encodings.cpu().detach().numpy()
     pca = None
 
     if latent_arr.shape[1] > 2:
