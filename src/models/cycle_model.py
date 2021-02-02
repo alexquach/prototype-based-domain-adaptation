@@ -16,7 +16,8 @@ class Lambda(nn.Module):
         return self.func(x)
 
 class CycleModel(nn.Module):
-    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1), nonlinear_transition=False):
+    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1),\
+                 nonlinear_transition=False, freeze_source=False):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
@@ -46,12 +47,16 @@ class CycleModel(nn.Module):
             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\
             self.proto_close_to_weight, self.close_to_proto_weight, self.weight_class_transition = weights
 
-        self.optim = optim.Adam([
-            *self.source_model.parameters(),
+        combined_optim_params = [
             *self.target_model.parameters(),
             *self.transition_model.parameters(),
             *self.inverse_transition_model.parameters()
-        ])
+        ]
+
+        if not freeze_source:
+            combined_optim_params.extend(self.source_model.parameters())
+
+        self.optim = optim.Adam(combined_optim_params)
 
         self.optim_transition = optim.Adam([
             self.target_model.proto_layer.prototypes,
