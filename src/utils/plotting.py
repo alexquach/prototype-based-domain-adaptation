@@ -38,7 +38,7 @@ def plot_rows_of_images(images, savepath=None, show=True):
         plt.show()
     plt.close('all')
 
-def plot_latent(latent, coloring_labels=None, num_to_plot=500, ax=None, coloring_name='digit', savepath=None):
+def plot_latent(latent, coloring_labels=None, num_to_plot=500, ax=None, fig=None, coloring_name='digit', savepath=None):
     plot_in_color = coloring_labels is not None
     encodings = latent[-num_to_plot:]
     latent_arr = encodings.cpu().detach().numpy()
@@ -63,7 +63,8 @@ def plot_latent(latent, coloring_labels=None, num_to_plot=500, ax=None, coloring
         color_map_name = 'coolwarm' if num_labels == 1 else 'RdBu'
         cmap = plt.get_cmap(color_map_name, num_labels + 1)
         pcm = ax.scatter(x, y, s=20, marker='o', c=colors, cmap=cmap, vmin=np.min(colors) - 0.5, vmax=np.max(colors) + 0.5)
-        if use_new_base_fig:
+        
+        if fig or use_new_base_fig:
             min_tick = 0
             max_tick = 10 if np.max(colors) > 2 else 2
             fig.colorbar(pcm, ax=ax, ticks=np.arange(min_tick, max_tick))

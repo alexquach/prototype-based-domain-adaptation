@@ -328,7 +328,7 @@ class CycleModel(nn.Module):
             for j in range(2):
                 new_ax = plt.subplot(gs[i, j])
 
-                plot_latent(list_to_be_plotted[i*2 + j], range(10), ax=new_ax)
+                plot_latent(list_to_be_plotted[i*2 + j], range(10), ax=new_ax, fig=fig)
 
         plt.show()
         if root_savepath:
