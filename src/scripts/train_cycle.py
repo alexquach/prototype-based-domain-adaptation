@@ -50,7 +50,7 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
         model_1 = ProtoModel(config_1, LEARNING_RATE)
     model_2 = ProtoModel(config_2, LEARNING_RATE)
 
-    cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights, nonlinear_transition=nonlinear_transition)
+    cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights, nonlinear_transition=nonlinear_transition, freeze_source=freeze_source)
 
     if train_new:
         cm.fit_combined_loss(mnist_train_dl, svhn_train_dl)
