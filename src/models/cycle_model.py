@@ -343,12 +343,27 @@ class CycleModel(nn.Module):
             for j in range(2):
                 new_ax = plt.subplot(gs[i, j])
 
-                plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig)
-                plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x')
+                # Initial source pca 
+                if i*2 + j == 0:
+                    pca_source, _ = plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x')
+                    plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig, pca=pca_source)
+                # Initial target pca
+                elif i*2 + j == 1:
+                    pca_target, _ = plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x')
+                    plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig, pca=pca_target)
+                # Other plots in source latent space
+                elif (i+j)%2 == 0:
+                    plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x', pca=pca_source)
+                    plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig, pca=pca_source)
+                # Other plots in target latent space
+                else:
+                    plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x', pca=pca_target)
+                    plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig, pca=pca_target)
+
 
         plt.show()
         if root_savepath:
-            plt.savefig(root_savepath + "_proto_2d.jpg")
+            plt.savefig(root_savepath + "_latent_2d.jpg")
 
         # plot_latent(source, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_source.jpg")
         # plot_latent(target, range(10), savepath=root_savepath if root_savepath is None else root_savepath + "_target.jpg")

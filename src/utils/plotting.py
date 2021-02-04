@@ -38,15 +38,16 @@ def plot_rows_of_images(images, savepath=None, show=True):
         plt.show()
     plt.close('all')
 
-def plot_latent(latent, coloring_labels=None, num_to_plot=500, ax=None, fig=None, coloring_name='digit', savepath=None, marker='o'):
+def plot_latent(latent, coloring_labels=None, num_to_plot=500, ax=None, fig=None, coloring_name='digit', savepath=None, marker='o', pca=None):
     plot_in_color = coloring_labels is not None
     encodings = latent[-num_to_plot:]
     latent_arr = encodings.cpu().detach().numpy()
     pca = None
 
     if latent_arr.shape[1] > 2:
-        pca = PCA(n_components=2)
-        pca.fit(latent_arr)
+        if pca is None:
+            pca = PCA(n_components=2)
+            pca.fit(latent_arr)
         transformed = pca.transform(latent_arr)
     else:
         transformed = latent_arr
