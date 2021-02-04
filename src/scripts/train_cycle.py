@@ -64,7 +64,7 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
 
     cm.visualize_prototypes(f"{model_name}_proto.jpg")
     cm.visualize_samples(mnist_train_dl, svhn_train_dl, f"{model_name}_sample.jpg")
-    cm.visualize_prototypes_2d(root_savepath=model_name)
+    cm.visualize_latent_2d(mnist_train_dl, svhn_train_dl, root_savepath=model_name)
     print(f"weights: {weights} {train_frac} {'nonlinear' if nonlinear_transition else 'linear'}")
 
     if save_model:

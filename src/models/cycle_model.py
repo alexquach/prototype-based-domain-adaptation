@@ -299,7 +299,7 @@ class CycleModel(nn.Module):
 
         plot_rows_of_images([xb_source, xb_target, recon_source, recon_target, recon_transfer_source, recon_transfer_target], path_name)
 
-    def visualize_prototypes_2d(self, root_savepath=None):
+    def visualize_latent_2d(self, source_dl, target_dl, root_savepath=None):
         """ 
         Note:
             Savepath should not include the extension (.jpg, .png)
@@ -312,6 +312,7 @@ class CycleModel(nn.Module):
             5. Recon Source (S -> T -> S) Prototypes
             6. Recon Target (T -> S -> T) Prototypes
         """
+        # prototypes
         source = self.source_model.proto_layer.prototypes
         target = self.target_model.proto_layer.prototypes
         transition_target = self.transition_model(source)
@@ -319,16 +320,31 @@ class CycleModel(nn.Module):
         recon_source = self.inverse_transition_model(transition_target)
         recon_target = self.transition_model(transition_source)
 
+        # samples
+        xb_source, yb_source = next(iter(source_dl))
+        xb_target, yb_target = next(iter(target_dl))
+        xb_source = self.source_model.encoder(xb_source.to(self.dev))
+        xb_target = self.target_model.encoder(xb_target.to(self.dev))
+        yb_source = yb_source.to(self.dev).cpu().detach().numpy()
+        yb_target = yb_target.to(self.dev).cpu().detach().numpy()
+        xb_transition_target = self.transition_model(xb_source)
+        xb_transition_source = self.inverse_transition_model(xb_target)
+        xb_recon_source = self.inverse_transition_model(xb_transition_target)
+        xb_recon_target = self.transition_model(xb_transition_source)
+
         fig = plt.figure(figsize=(15, 10))
         gs = gridspec.GridSpec(3, 2)
 
-        list_to_be_plotted = [source, target, transition_target, transition_source, recon_source, recon_target]
+        proto_to_plot = [source, target, transition_target, transition_source, recon_source, recon_target]
+        sample_to_plot = [xb_source, xb_target, xb_transition_target, xb_transition_source, xb_recon_source, xb_recon_target]
+        sample_labels = [yb_source, yb_target, yb_source, yb_target, yb_source, yb_target]
 
         for i in range(3):
             for j in range(2):
                 new_ax = plt.subplot(gs[i, j])
 
-                plot_latent(list_to_be_plotted[i*2 + j], range(10), ax=new_ax, fig=fig)
+                plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig)
+                plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x')
 
         plt.show()
         if root_savepath:
