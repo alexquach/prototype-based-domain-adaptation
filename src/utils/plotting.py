@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import gridspec
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 
 def plot_single_img(img, ax=None, savepath=None):
     side_length = int(np.sqrt(img.shape[1]))
@@ -42,9 +43,10 @@ def plot_latent(latent, coloring_labels=None, num_to_plot=500, ax=None, fig=None
     plot_in_color = coloring_labels is not None
     encodings = latent[-num_to_plot:]
     latent_arr = encodings.cpu().detach().numpy()
-    pca = None
 
     if latent_arr.shape[1] > 2:
+        # tsne = TSNE(n_components=2)
+        # transformed = tsne.fit_transform(latent_arr)
         if pca is None:
             pca = PCA(n_components=2)
             pca.fit(latent_arr)
