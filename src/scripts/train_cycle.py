@@ -29,14 +29,14 @@ proto_model_config_2 = {
 }
 
 # Hyperparameters
-NUM_EPOCHS = 0
+NUM_EPOCHS = 1
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
 # torch.autograd.set_detect_anomaly(True)
 
 def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config_2, epochs=NUM_EPOCHS,\
-          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1), train_frac=1, nonlinear_transition=False,\
+          train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1,1), train_frac=1, nonlinear_transition=False,\
           load_source_model=None, freeze_source=False):
 
     # load MNIST data

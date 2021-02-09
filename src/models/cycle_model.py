@@ -18,7 +18,7 @@ class Lambda(nn.Module):
         return self.func(x)
 
 class CycleModel(nn.Module):
-    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1),\
+    def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1,1),\
                  nonlinear_transition=False, freeze_source=False):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -47,7 +47,8 @@ class CycleModel(nn.Module):
 
         self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\
-            self.proto_close_to_weight, self.close_to_proto_weight, self.weight_class_transition = weights
+            self.proto_close_to_weight, self.close_to_proto_weight, self.weight_class_transition,\
+            self.weight_proto_align = weights
 
         combined_optim_params = [
             *self.target_model.parameters(),
@@ -182,7 +183,12 @@ class CycleModel(nn.Module):
                 loss_class_transition, acc_transition = self.loss_pred(prediction_transition, yb_source)
                 print(f'transition loss/acc {self.epoch}: {loss_class_transition} + {acc_transition}')
 
-                loss_transition = self.weight_class_transition * loss_class_transition
+                # 10. Loss on prototype alignment
+                loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.target_model.proto_layer.prototypes)
+                print(f'prototype alignment loss {self.epoch}: {loss_proto_align}')
+
+                loss_transition = self.weight_class_transition * loss_class_transition +\
+                                  self.weight_proto_align * loss_proto_align
                 loss_transition.backward()
 
                 self.optim_transition.step()
@@ -245,7 +251,8 @@ class CycleModel(nn.Module):
             'model_state_dict': self.state_dict(),
             'loss_weights': (self.weight_recon_source, self.weight_recon_target, self.weight_autoencode_source,\
                             self.weight_autoencode_target, self.weight_class_source, self.weight_class_target,\
-                            self.proto_close_to_weight, self.close_to_proto_weight, self.weight_class_transition)
+                            self.proto_close_to_weight, self.close_to_proto_weight, self.weight_class_transition,\
+                            self.weight_proto_align)
             }, path_name)
 
     @staticmethod
