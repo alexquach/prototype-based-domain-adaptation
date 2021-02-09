@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
 from models.proto_model import ProtoModel
-from utils.plotting import plot_rows_of_images, plot_latent
+from utils.plotting import plot_rows_of_images, plot_latent_tsne, plot_latent_pca
 
 class Lambda(nn.Module):
     def __init__(self, func):
@@ -299,7 +299,7 @@ class CycleModel(nn.Module):
 
         plot_rows_of_images([xb_source, xb_target, recon_source, recon_target, recon_transfer_source, recon_transfer_target], path_name)
 
-    def visualize_latent_2d(self, source_dl, target_dl, root_savepath=None):
+    def visualize_latent_2d(self, source_dl, target_dl, root_savepath=None, batch_multiple=1):
         """ 
         Note:
             Savepath should not include the extension (.jpg, .png)
@@ -323,6 +323,14 @@ class CycleModel(nn.Module):
         # samples
         xb_source, yb_source = next(iter(source_dl))
         xb_target, yb_target = next(iter(target_dl))
+        # build up to batch_multiple * batch_size number of samples
+        for i in range(batch_multiple - 1):
+            new_xb_source, new_yb_source = next(iter(source_dl))
+            new_xb_target, new_yb_target = next(iter(target_dl))
+            xb_source = torch.cat([xb_source, new_xb_source])
+            yb_source = torch.cat([yb_source, new_yb_source])
+            xb_target = torch.cat([xb_target, new_xb_target])
+            yb_target = torch.cat([yb_target, new_yb_target])
         xb_source = self.source_model.encoder(xb_source.to(self.dev))
         xb_target = self.target_model.encoder(xb_target.to(self.dev))
         yb_source = yb_source.to(self.dev).cpu().detach().numpy()
@@ -332,8 +340,8 @@ class CycleModel(nn.Module):
         xb_recon_source = self.inverse_transition_model(xb_transition_target)
         xb_recon_target = self.transition_model(xb_transition_source)
 
-        fig = plt.figure(figsize=(15, 10))
-        gs = gridspec.GridSpec(3, 2)
+        fig = plt.figure(figsize=(20, 10))
+        gs = gridspec.GridSpec(4, 2)
 
         proto_to_plot = [source, target, transition_target, transition_source, recon_source, recon_target]
         sample_to_plot = [xb_source, xb_target, xb_transition_target, xb_transition_source, xb_recon_source, xb_recon_target]
@@ -343,23 +351,14 @@ class CycleModel(nn.Module):
             for j in range(2):
                 new_ax = plt.subplot(gs[i, j])
 
-                # Initial source pca 
-                if i*2 + j == 0:
-                    pca_source, _ = plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x')
-                    plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig, pca=pca_source)
-                # Initial target pca
-                elif i*2 + j == 1:
-                    pca_target, _ = plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x')
-                    plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig, pca=pca_target)
-                # Other plots in source latent space
-                elif (i+j)%2 == 0:
-                    plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x', pca=pca_source)
-                    plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig, pca=pca_source)
-                # Other plots in target latent space
-                else:
-                    plot_latent(sample_to_plot[i*2 + j], sample_labels[i*2 + j], ax=new_ax, marker='x', pca=pca_target)
-                    plot_latent(proto_to_plot[i*2 + j], range(10), ax=new_ax, fig=fig, pca=pca_target)
+                #plot_latent_pca(proto_to_plot[i*2 +j], range(10), ax=new_ax, marker='x')
+                plot_latent_tsne([proto_to_plot[i*2 +j], sample_to_plot[i*2 + j]], [range(10), sample_labels[i*2 +j]], ax=new_ax, markers=['x', 'o'], sizes=[300, 1], fig=fig)
 
+        new_ax = plt.subplot(gs[3, 0])
+        plot_latent_tsne([source, xb_source, transition_source, xb_transition_source], [range(10), yb_source, range(10), yb_source], ax=new_ax, markers=['x', '|', '+', '_'], sizes=[300, 5, 300, 5], fig=fig)
+
+        new_ax = plt.subplot(gs[3, 1])
+        plot_latent_tsne([target, xb_target, transition_target, xb_transition_target], [range(10), yb_target, range(10), yb_target], ax=new_ax, markers=['x', '|', '+', '_'], sizes=[300, 5, 300, 5], fig=fig)
 
         plt.show()
         if root_savepath:
