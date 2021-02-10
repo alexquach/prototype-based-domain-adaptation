@@ -186,7 +186,7 @@ class CycleModel(nn.Module):
                 # 10. Loss on prototype alignment
                 # loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.target_model.proto_layer.prototypes)
                 loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))+\
-                                   self.loss_recon(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))
+                                   self.loss_recon(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
                 print(f'prototype alignment loss {self.epoch}: {loss_proto_align}')
 
                 loss_transition = self.weight_class_transition * loss_class_transition +\
