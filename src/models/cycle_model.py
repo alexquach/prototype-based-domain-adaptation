@@ -19,7 +19,7 @@ class Lambda(nn.Module):
 
 class CycleModel(nn.Module):
     def __init__(self, source_model, target_model, epochs=10, weights=(1,1,1,1,1,1,.1,.1,1,1),\
-                 nonlinear_transition=False, freeze_source=False):
+                 nonlinear_transition=False, freeze_source=False, t_recon_decay_weight=1, t_recon_decay_epochs=0):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.source_model = source_model
@@ -27,6 +27,8 @@ class CycleModel(nn.Module):
         self.nonlinear_transition = nonlinear_transition
         self.epoch = 0
         self.epochs = epochs
+        self.t_recon_decay_weight = t_recon_decay_weight
+        self.t_recon_decay_epochs = t_recon_decay_epochs
 
         # Transfer layer
         if nonlinear_transition:
@@ -164,9 +166,14 @@ class CycleModel(nn.Module):
                 print(f'proto dist {self.epoch}: {loss_proto_dist_source} + {loss_proto_dist_target}')
                 print(f'feat dist {self.epoch}: {loss_feature_dist_source} + {loss_feature_dist_target}')
 
+                if self.epoch < self.t_recon_decay_epochs:
+                    weight_recon_target_adj = self.weight_recon_target + (float)(self.t_recon_decay_epochs - self.epochs)/self.t_recon_decay_epochs *self.t_recon_decay_weight
+                else:
+                    weight_recon_target_adj = self.weight_recon_target
+
                 # calculate combined loss
                 self.loss_combined = self.weight_recon_source * loss_recon_source +\
-                                     self.weight_recon_target * loss_recon_target +\
+                                     weight_recon_target_adj * loss_recon_target +\
                                      self.weight_autoencode_source * loss_autoencode_source +\
                                      self.weight_autoencode_target * loss_autoencode_target +\
                                      self.weight_class_source * loss_class_source +\

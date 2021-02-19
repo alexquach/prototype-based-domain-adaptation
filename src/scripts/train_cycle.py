@@ -37,7 +37,7 @@ LEARNING_RATE = 0.001
 
 def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config_2, epochs=NUM_EPOCHS,\
           train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1,1), train_frac=1, nonlinear_transition=False,\
-          load_source_model=None, load_target_model=None, freeze_source=False):
+          load_source_model=None, load_target_model=None, freeze_source=False, t_recon_decay_weight=1, t_recon_decay_epochs = 10):
 
     # load MNIST data
     mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
@@ -55,7 +55,7 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
     else:
         model_2 = ProtoModel(config_2, LEARNING_RATE)
 
-    cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights, nonlinear_transition=nonlinear_transition, freeze_source=freeze_source)
+    cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights, nonlinear_transition=nonlinear_transition, freeze_source=freeze_source, t_recon_decay_weight=t_recon_decay_weight, t_recon_decay_epochs=t_recon_decay_epochs)
 
     if train_new:
         cm.fit_combined_loss(mnist_train_dl, svhn_train_dl)
@@ -77,4 +77,4 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
 
 
 if __name__ == "__main__": 
-    train("cm_class_both", train_new=True, train_frac=1, nonlinear_transition=True, load_source_model="mnist_linear_1.pth", load_target_model="svhn_conv.pth", freeze_source=True)
+    train("cm_class_both", train_new=True, train_frac=1, nonlinear_transition=True, load_source_model="mnist_linear_1.pth", load_target_model="svhn_conv.pth", freeze_source=True, t_recon_decay_weight=20, t_recon_decay_epochs=10)
