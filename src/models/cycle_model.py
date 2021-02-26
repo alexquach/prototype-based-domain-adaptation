@@ -207,7 +207,6 @@ class CycleModel(nn.Module):
 
     def loss_pred(self, prediction, label):
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
-        
         prediction_class = prediction.argmax(1)
         num_correct = (prediction_class == label).sum().item()
         class_accuracy = num_correct / len(prediction)

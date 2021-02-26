@@ -12,7 +12,7 @@ proto_model_config_1 = {
     "hidden_activations": [nn.ReLU(), None],
     "latent_dim": 128,
     "recon_activation": nn.Sigmoid(),
-    "num_prototypes": 10,
+    "num_prototypes": 20,
     "num_classes": 10,
     "use_convolution": False
 }
@@ -23,7 +23,7 @@ proto_model_config_2 = {
     "hidden_activations": [nn.ReLU(), None],
     "latent_dim": 128,
     "recon_activation": nn.Sigmoid(),
-    "num_prototypes": 10,
+    "num_prototypes": 20,
     "num_classes": 10,
     "use_convolution": True
 }
@@ -77,4 +77,5 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
 
 
 if __name__ == "__main__": 
-    train("cm_class_both", train_new=True, train_frac=1, nonlinear_transition=True, load_source_model="mnist_linear_1.pth", load_target_model="svhn_conv.pth", freeze_source=True, t_recon_decay_weight=20, t_recon_decay_epochs=10)
+    #load_source_model="mnist_linear_1.pth", load_target_model="svhn_conv.pth"
+    train("cm_class_both", train_new=True, train_frac=1, nonlinear_transition=True, freeze_source=True, t_recon_decay_weight=20, t_recon_decay_epochs=10)

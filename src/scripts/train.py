@@ -9,14 +9,14 @@ dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 proto_model_config = {
     "input_dim": 784,
     "latent_dim": 128,
-    "num_prototypes": 10,
+    "num_prototypes": 20,
     "num_classes": 10,
 
     "hidden_layers": [128, 128],
     "hidden_activations": [nn.ReLU(), None],
     "recon_activation": nn.Sigmoid(),
 
-    "use_convolution": False,
+    "use_convolution": True,
     "conv_input_channels": 1,
     "conv_hidden_layers": [128, 128],
     "hidden_activations": [nn.ReLU(), None],
@@ -64,4 +64,4 @@ def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_con
         #new_model.fit(10, train_dl)
 
 if __name__ == "__main__": 
-    train("mnist_linear_1_20", train_new=True, save_model=True, dataset="svhn")
+    train("svhn_conv_20", train_new=False, save_model=False, dataset="svhn")
