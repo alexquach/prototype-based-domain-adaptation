@@ -28,14 +28,16 @@ BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
 def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_conv=False,\
-    train_new=True, save_model=True):
+    train_new=True, save_model=True, dataset="mnist"):
 
     if override_conv:
         proto_model_config['use_convolution'] = True
 
     # load test data
-    # train_dl, test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True)
-    train_dl, test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
+    if dataset == "svhn":
+        train_dl, test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True)
+    else:
+        train_dl, test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
 
     # create ProtoModel
     model = ProtoModel(proto_model_config, LEARNING_RATE)
@@ -62,4 +64,4 @@ def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_con
         #new_model.fit(10, train_dl)
 
 if __name__ == "__main__": 
-    train("mnist_linear_1_20", train_new=True, save_model=True)
+    train("mnist_linear_1_20", train_new=True, save_model=True, dataset="svhn")
