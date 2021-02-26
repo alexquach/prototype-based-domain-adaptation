@@ -44,7 +44,7 @@ def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_con
     if train_new:
         model.fit(NUM_EPOCHS, train_dl, visualize_sample_name=None)
     else:
-        model = ProtoModel.load_model("mnist_linear_1.pth", proto_model_config, LEARNING_RATE)
+        model = ProtoModel.load_model(f"{model_name}.pth", proto_model_config, LEARNING_RATE)
 
     # generate test loss metrics
     train_losses = model.evaluate(train_dl)
@@ -62,4 +62,4 @@ def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_con
         #new_model.fit(10, train_dl)
 
 if __name__ == "__main__": 
-    train("test", save_model=False)
+    train("mnist_linear_1_20", train_new=True, save_model=True)

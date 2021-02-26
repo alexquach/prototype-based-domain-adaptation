@@ -33,7 +33,8 @@ class Predictor(nn.Module):
         else:
             self.final_layer = nn.Sequential(
                 Lambda(lambda x: torch.neg(x)),
-                nn.Softmax()
+                nn.Softmax(),
+                Lambda(lambda x: x.view(x.shape[0], num_classes, -1).sum(axis=2))
             )
 
     def forward(self, proto_distances):
