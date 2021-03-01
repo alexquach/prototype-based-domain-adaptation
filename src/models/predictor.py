@@ -10,6 +10,10 @@ class Lambda(nn.Module):
     def forward(self, x):
         return self.func(x)
 
+def group_by_prototype(x, num_classes):
+    a = x.view(x.shape[0], -1, num_classes).transpose(1, 2)
+    return a.sum(axis=2)
+
 class Predictor(nn.Module):
 
     def __init__(self, num_prototypes, layers, num_classes):
@@ -34,7 +38,7 @@ class Predictor(nn.Module):
             self.final_layer = nn.Sequential(
                 Lambda(lambda x: torch.neg(x)),
                 nn.Softmax(),
-                Lambda(lambda x: x.view(x.shape[0], num_classes, -1).sum(axis=2))
+                Lambda(lambda x: group_by_prototype(x, self.num_classes))
             )
 
     def forward(self, proto_distances):
