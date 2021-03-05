@@ -13,6 +13,7 @@ class Lambda(nn.Module):
 def group_by_prototype(x, num_classes):
     a = x.view(x.shape[0], -1, num_classes).transpose(1, 2)
     return a.sum(axis=2)
+    # 64 10 3
 
 class Predictor(nn.Module):
 
@@ -38,7 +39,7 @@ class Predictor(nn.Module):
             self.final_layer = nn.Sequential(
                 Lambda(lambda x: torch.neg(x)),
                 nn.Softmax(),
-                nn.Dropout(0.75),
+                nn.Dropout(dropout),
                 Lambda(lambda x: group_by_prototype(x, self.num_classes))
             )
 
