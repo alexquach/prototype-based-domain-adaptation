@@ -38,8 +38,8 @@ class Predictor(nn.Module):
         else:
             self.final_layer = nn.Sequential(
                 Lambda(lambda x: torch.neg(x)),
-                nn.Softmax(),
                 nn.Dropout(dropout),
+                nn.Softmax(),
                 Lambda(lambda x: group_by_prototype(x, self.num_classes))
             )
 
