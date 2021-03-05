@@ -9,8 +9,9 @@ dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 proto_model_config = {
     "input_dim": 784,
     "latent_dim": 128,
-    "num_prototypes": 20,
+    "num_prototypes": 30,
     "num_classes": 10,
+    "proto_dropout": 0.8,
 
     "hidden_layers": [128, 128],
     "hidden_activations": [nn.ReLU(), None],
@@ -54,8 +55,8 @@ def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_con
     test_losses = model.evaluate(test_dl)
     print(test_losses)
 
-    # model.visualize_sample(test_dl, path_name="svhn_conv_sample.jpg")
-    # model.visualize_prototypes(path_name="svhn_conv_proto.jpg")
+    model.visualize_sample(test_dl, path_name=f"{model_name}_sample.jpg")
+    model.visualize_prototypes(path_name=f"{model_name}_proto.jpg")
 
     # Testing the save/load functionality
     if save_model:
@@ -64,4 +65,4 @@ def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_con
         #new_model.fit(10, train_dl)
 
 if __name__ == "__main__": 
-    train("svhn_conv_20", train_new=False, save_model=False, dataset="svhn")
+    train("svhn_conv_30", train_new=True, save_model=True, dataset="svhn")

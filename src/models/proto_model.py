@@ -22,7 +22,7 @@ def preprocess_conv(x):
     return x.view(-1, 1, 28, 28)
 
 class ProtoModel(nn.Module):
-    def __init__(self, config, learning_rate):
+    def __init__(self, config, learning_rate): 
         super(ProtoModel, self).__init__()
         self.config = config
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -36,6 +36,7 @@ class ProtoModel(nn.Module):
         self.num_prototypes = funcy.get_in(self.config, ['num_prototypes'], None)
         self.num_classes = funcy.get_in(self.config, ['num_classes'], None)
         self.use_convolution = funcy.get_in(self.config, ['use_convolution'], None)
+        self.proto_dropout = funcy.get_in(self.config, ['proto_dropout'], 0.75)
 
         # Loss related parameters
         self.classification_weight = 10
@@ -107,7 +108,7 @@ class ProtoModel(nn.Module):
         self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
 
         # Predictor
-        self.predictor = Predictor(self.num_prototypes, None, self.num_classes)
+        self.predictor = Predictor(self.num_prototypes, None, self.num_classes, self.proto_dropout)
 
     def build_parts_conv(self):
         # Encoder
@@ -189,7 +190,7 @@ class ProtoModel(nn.Module):
         self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
 
         # Predictor
-        self.predictor = Predictor(self.num_prototypes, None, self.num_classes)
+        self.predictor = Predictor(self.num_prototypes, None, self.num_classes, self.proto_dropout)
 
     def build_parts_alt_conv(self):
         # TODO: look into implementing convolutional decoder and remove this alternative convolutional option
@@ -221,7 +222,7 @@ class ProtoModel(nn.Module):
         self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
 
         # Predictor
-        self.predictor = Predictor(self.num_prototypes, None, self.num_classes)
+        self.predictor = Predictor(self.num_prototypes, None, self.num_classes, self.proto_dropout)
 
 
     @staticmethod

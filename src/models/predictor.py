@@ -16,7 +16,7 @@ def group_by_prototype(x, num_classes):
 
 class Predictor(nn.Module):
 
-    def __init__(self, num_prototypes, layers, num_classes):
+    def __init__(self, num_prototypes, layers, num_classes, dropout=0.75):
         """ Takes in prototype distances and outputs predicted class
 
         Args:
@@ -38,7 +38,7 @@ class Predictor(nn.Module):
             self.final_layer = nn.Sequential(
                 Lambda(lambda x: torch.neg(x)),
                 nn.Softmax(),
-                nn.Dropout(0.5),
+                nn.Dropout(0.75),
                 Lambda(lambda x: group_by_prototype(x, self.num_classes))
             )
 
