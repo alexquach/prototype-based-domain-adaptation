@@ -8,23 +8,23 @@ dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 proto_model_config = {
     "input_dim": 784,
-    "latent_dim": 128,
+    "latent_dim": 32,
     "num_prototypes": 30,
     "num_classes": 10,
-    "proto_dropout": 0.8,
+    "proto_dropout": 0,
 
     "hidden_layers": [128, 128],
-    "hidden_activations": [nn.ReLU(), None],
+    "hidden_activations": [nn.Sigmoid(), None],
     "recon_activation": nn.Sigmoid(),
 
     "use_convolution": True,
     "conv_input_channels": 1,
     "conv_hidden_layers": [128, 128],
-    "hidden_activations": [nn.ReLU(), None],
+    "conv_hidden_activations": [nn.ReLU(), None],
 }
 
 # Hyperparameters
-NUM_EPOCHS = 20
+NUM_EPOCHS = 40
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 

@@ -146,7 +146,7 @@ class ProtoModel(nn.Module):
             nn.Dropout(0.3),
 
             Lambda(lambda x: x.view(x.size(0), -1)),
-            nn.Linear(1152, 128)
+            nn.Linear(1152, self.latent_dim)
         )
 
         # Decoder
