@@ -5,6 +5,7 @@ from torch import optim
 import numpy as np
 import funcy
 from collections.abc import Iterable
+from torchsummary import summary
 
 from models.proto_layer import ProtoLayer
 from models.predictor import Predictor
@@ -48,7 +49,7 @@ class ProtoModel(nn.Module):
         self.epoch = 0
 
         if self.use_convolution:
-            self.build_parts_conv()
+            self.build_parts_alt_conv()
         else:
             self.build_parts()
 
@@ -186,6 +187,8 @@ class ProtoModel(nn.Module):
             Lambda(lambda x: x.view(x.size(0), -1)),
         )
 
+        # summary(self.encoder, (64, 28, 28, 1))
+
         # ProtoLayer
         self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
 
@@ -194,30 +197,72 @@ class ProtoModel(nn.Module):
 
     def build_parts_alt_conv(self):
         # TODO: look into implementing convolutional decoder and remove this alternative convolutional option
-        self.conv1 = nn.Conv2d(1, 16, 3, padding=1)  
-        self.conv2 = nn.Conv2d(16, 4, 3, padding=1)
-        self.pool = nn.MaxPool2d(2, 2)
 
+        # Encoder
+        self.encoder_layer1 = nn.Conv2d(1, 32, 3)
+        self.encoder_layer2 = nn.Conv2d(32, 64, 3)
+        self.encoder_layer3 = nn.Linear(36864, 128)
+        self.latent_layer = nn.Linear(128, self.latent_dim)
         self.encoder = nn.Sequential(
             Lambda(preprocess_conv),
-            self.conv1,
+            nn.Conv2d(1, 32, 5, 1, 0),
             nn.ReLU(),
-            self.pool,
-            self.conv2,
-            nn.ReLU(),
-            self.pool
-        )
-        nn.ConvTranspose2d(16, 4, 2, 2)
-        self.t_conv1 = nn.ConvTranspose2d(4, 16, 2, stride=2)
-        self.t_conv2 = nn.ConvTranspose2d(16, 1, 2, stride=2)
+            nn.BatchNorm2d(32),
 
-        self.decoder = nn.Sequential(
-            self.t_conv1,
+            nn.Conv2d(32, 32, 5, 1, 0),
             nn.ReLU(),
-            self.t_conv2,
-            nn.Sigmoid(),
+            nn.Dropout(0.3),
+
+            nn.Conv2d(32, 64, 5, 1, 0),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+
+            nn.Conv2d(64, 64, 5, 1, 0),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+
+            nn.Conv2d(64, 128, 5, 1, 0),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+
+            nn.Conv2d(128, 128, 5, 1, 0),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+
+            Lambda(lambda x: x.view(x.size(0), -1)),
+            nn.Linear(2048, self.latent_dim)
         )
-        
+
+        # Decoder
+        self.decoder_layer2 = nn.Linear(self.latent_dim, 128)
+        self.decoder_layer1 = nn.Linear(128, 128)
+        self.recons_layer = nn.Linear(128, self.input_dim)
+        self.decoder = nn.Sequential(
+            nn.Linear(self.latent_dim, 2048),
+            nn.ReLU(),
+            Lambda(lambda x: x.view(x.size(0), 128, 4, 4)),
+
+            nn.ConvTranspose2d(128, 128, 5, 1, 0),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, 5, 1, 0),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(64, 64, 5, 1, 0),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, 5, 1, 0),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(32, 32, 5, 1, 0),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 1, 5, 1, 0),
+            nn.Sigmoid(),
+
+            Lambda(lambda x: x.view(x.size(0), -1)),
+        )
+
+        summary(self.encoder, (64, 28, 28, 1))
+        # summary(self.decoder, (64, 18432))
+
         # ProtoLayer
         self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
 
