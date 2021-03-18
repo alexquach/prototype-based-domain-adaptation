@@ -196,8 +196,6 @@ class ProtoModel(nn.Module):
         self.predictor = Predictor(self.num_prototypes, None, self.num_classes, self.proto_dropout)
 
     def build_parts_alt_conv(self):
-        # TODO: look into implementing convolutional decoder and remove this alternative convolutional option
-
         # Encoder
         self.encoder_layer1 = nn.Conv2d(1, 32, 3)
         self.encoder_layer2 = nn.Conv2d(32, 64, 3)
@@ -260,8 +258,7 @@ class ProtoModel(nn.Module):
             Lambda(lambda x: x.view(x.size(0), -1)),
         )
 
-        summary(self.encoder, (64, 28, 28, 1))
-        # summary(self.decoder, (64, 18432))
+        # summary(self.encoder, (64, 28, 28, 1))
 
         # ProtoLayer
         self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
