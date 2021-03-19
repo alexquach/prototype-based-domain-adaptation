@@ -9,7 +9,7 @@ dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 proto_model_config = {
     "input_dim": 784,
     "latent_dim": 32,
-    "num_prototypes": 30,
+    "num_prototypes": 10,
     "num_classes": 10,
     "proto_dropout": 0,
 
@@ -24,7 +24,7 @@ proto_model_config = {
 }
 
 # Hyperparameters
-NUM_EPOCHS = 40
+NUM_EPOCHS = 20
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
