@@ -9,7 +9,7 @@ dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 proto_model_config = {
     "input_dim": 784,
     "latent_dim": 32,
-    "num_prototypes": 10,
+    "num_prototypes": 30,
     "num_classes": 10,
     "proto_dropout": 0,
 
