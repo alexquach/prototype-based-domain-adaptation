@@ -45,9 +45,10 @@ def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_con
     model.to(dev)
 
     if train_new:
-        model.fit(NUM_EPOCHS, train_dl, visualize_sample_name=None)
+        model.fit(epochs, train_dl, visualize_sample_name=None)
     else:
         model = ProtoModel.load_model(f"{model_name}.pth", proto_model_config, LEARNING_RATE)
+        model.fit(epochs, train_dl, visualize_sample_name=None)
 
     # generate test loss metrics
     train_losses = model.evaluate(train_dl)
