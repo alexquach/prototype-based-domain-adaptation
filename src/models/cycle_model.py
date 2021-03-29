@@ -327,6 +327,8 @@ class CycleModel(nn.Module):
             5. Recon Source (S -> T -> S) Prototypes
             6. Recon Target (T -> S -> T) Prototypes
         """
+        proto_mult = int(self.source_model.num_prototypes / self.source_model.num_classes)
+
         # prototypes
         source = self.source_model.proto_layer.prototypes
         target = self.target_model.proto_layer.prototypes
@@ -367,13 +369,13 @@ class CycleModel(nn.Module):
                 new_ax = plt.subplot(gs[i, j])
 
                 #plot_latent_pca(proto_to_plot[i*2 +j], range(10), ax=new_ax, marker='x')
-                plot_latent_tsne([proto_to_plot[i*2 +j], sample_to_plot[i*2 + j]], [range(10), sample_labels[i*2 +j]], ax=new_ax, markers=['x', 'o'], sizes=[300, 1], fig=fig)
+                plot_latent_tsne([proto_to_plot[i*2 +j], sample_to_plot[i*2 + j]], [list(range(10)) * proto_mult, sample_labels[i*2 +j]], ax=new_ax, markers=['x', 'o'], sizes=[300, 1], fig=fig)
 
         new_ax = plt.subplot(gs[3, 0])
-        plot_latent_tsne([source, xb_source, transition_source, xb_transition_source], [range(10), yb_source, range(10), yb_source], ax=new_ax, markers=['x', '|', '+', '_'], sizes=[300, 5, 300, 5], fig=fig)
+        plot_latent_tsne([source, xb_source, transition_source, xb_transition_source], [list(range(10)) * proto_mult, yb_source, list(range(10)) * proto_mult, yb_source], ax=new_ax, markers=['x', '|', '+', '_'], sizes=[300, 5, 300, 5], fig=fig)
 
         new_ax = plt.subplot(gs[3, 1])
-        plot_latent_tsne([target, xb_target, transition_target, xb_transition_target], [range(10), yb_target, range(10), yb_target], ax=new_ax, markers=['x', '|', '+', '_'], sizes=[300, 5, 300, 5], fig=fig)
+        plot_latent_tsne([target, xb_target, transition_target, xb_transition_target], [list(range(10)) * proto_mult, yb_target, list(range(10)) * proto_mult, yb_target], ax=new_ax, markers=['x', '|', '+', '_'], sizes=[300, 5, 300, 5], fig=fig)
 
         plt.show()
         if root_savepath:
