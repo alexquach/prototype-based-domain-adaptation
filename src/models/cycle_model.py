@@ -205,7 +205,7 @@ class CycleModel(nn.Module):
             print(f'prototype alignment loss {self.epoch}: {loss_proto_align}')
             self.epoch += 1
 
-            if visualize_10_epochs:
+            if visualize_10_epochs and (self.epoch % 10 == 0):
                 if model_name:
                     self.visualize_prototypes(f"{model_name}_proto_e{self.epoch}.jpg")
                     self.visualize_samples(source_train_dl, target_train_dl, f"{model_name}_sample_e{self.epoch}.jpg")

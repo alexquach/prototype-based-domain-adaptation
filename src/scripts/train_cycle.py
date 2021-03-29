@@ -35,14 +35,14 @@ LEARNING_RATE = 0.001
 
 # torch.autograd.set_detect_anomaly(True)
 
-def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config_2, epochs=NUM_EPOCHS,\
+def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config_2, epochs=NUM_EPOCHS, batch_size=BATCH_SIZE,\
           train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1,1), train_frac=1, nonlinear_transition=False,\
           load_source_model=None, load_target_model=None, freeze_source=False, t_recon_decay_weight=1, t_recon_decay_epochs = 10,\
           visualize_10_epochs=False):
 
     # load MNIST data
-    mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(BATCH_SIZE)
-    svhn_train_dl, svhn_test_dl = load_svhn.load_svhn_dataloader(BATCH_SIZE, greyscale=True, training_fraction=train_frac)
+    mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(batch_size)
+    svhn_train_dl, svhn_test_dl = load_svhn.load_svhn_dataloader(batch_size, greyscale=True, training_fraction=train_frac)
 
     # create Source ProtoModel
     if load_source_model:
