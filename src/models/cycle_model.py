@@ -264,7 +264,7 @@ class CycleModel(nn.Module):
             }, path_name)
 
     @staticmethod
-    def load_model(path_name, model_1, model_2):
+    def load_model(path_name, model_1, model_2, epochs=10):
         """
         Note:
             If used for inference, make sure to set model.eval()
@@ -283,6 +283,8 @@ class CycleModel(nn.Module):
 
         loaded_model.load_state_dict(checkpoint['model_state_dict'])
         loaded_model.epoch = checkpoint['epoch']
+
+        loaded_model.epochs = epochs
 
         return loaded_model
 

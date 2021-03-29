@@ -60,7 +60,8 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
     if train_new:
         cm.fit_combined_loss(mnist_train_dl, svhn_train_dl)
     else:
-        cm = CycleModel.load_model(f"{model_name}.pth", model_1, model_2)
+        cm = CycleModel.load_model(f"{model_name}.pth", model_1, model_2, epochs=epochs)
+        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl)
 
     res = cm.evaluate(svhn_test_dl)
     print(res)
