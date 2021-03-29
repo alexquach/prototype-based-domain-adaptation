@@ -316,12 +316,12 @@ class ProtoModel(nn.Module):
                 input_, recons, prediction, min_proto_dist, min_feature_dist = self.__call__(xb)
                 
                 self.loss_val, _, _, _, _, _ = self.loss_func(input_, recons, prediction, min_proto_dist, min_feature_dist, yb)
-                print(f'{self.epoch} + {self.loss_val}')
 
                 self.loss_val.backward()
 
                 self.optim.step()
                 self.optim.zero_grad()
+            print(f'{self.epoch} + {self.loss_val}')
             self.epoch += 1
             if visualize_sample_name:
                 self.visualize_sample(train_dl, path_name=f'src/visualizations/{visualize_sample_name}_{self.epoch}.jpg')

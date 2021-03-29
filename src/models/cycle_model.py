@@ -118,14 +118,14 @@ class CycleModel(nn.Module):
 
         return xb_source, recon_source, xb_target, recon_target
 
-    def fit_combined_loss(self, source_train_dl, target_train_dl):
+    def fit_combined_loss(self, source_train_dl, target_train_dl, visualize_10_epochs=False, model_name=None):
         """
         Trains using a combined loss for simultaneous optimization
 
         """
 
         while self.epoch < self.epochs:
-            self.train()    
+            self.train()
 
             # Loop over target_train and source_train datasets
             for (xb_target, yb_target), (xb_source, yb_source) in zip(target_train_dl, source_train_dl):
@@ -140,31 +140,24 @@ class CycleModel(nn.Module):
 
                 # 1. Loss on transfered source
                 loss_recon_source = self.loss_recon(xb_source, recon_source)
-                print(f'\ntransfer source {self.epoch}: {loss_recon_source}')
 
                 # 2. Loss on transfered target
                 loss_recon_target = self.loss_recon(xb_target, recon_target)
-                print(f'transfer target {self.epoch}: {loss_recon_target}')
 
                 # 3 + 4. Loss on autoencoded 
                 _, autoencode_source, _, autoencode_target = self.autoencode(xb_source, xb_target) 
                 loss_autoencode_source = self.loss_recon(xb_source, autoencode_source)
                 loss_autoencode_target = self.loss_recon(xb_target, autoencode_target)
-                print(f'autoencode {self.epoch}: {loss_autoencode_source} + {loss_autoencode_target}')
 
                 # 5 + 6. Loss on straight-through classification error
                 loss_class_source, acc_source = self.loss_pred(prediction_source, yb_source)
                 loss_class_target, acc_target = self.loss_pred(prediction_target, yb_target)
-                print(f'class loss {self.epoch}: {loss_class_source} + {loss_class_target}')
-                print(f'class acc {self.epoch}: {acc_source} + {acc_target}')
 
                 # 7 + 8. Loss on distances between prototypes -> samples and samples -> prototypes
                 loss_proto_dist_source = torch.mean(min_proto_dist_source)
                 loss_feature_dist_source = torch.mean(min_feature_dist_source)
                 loss_proto_dist_target = torch.mean(min_proto_dist_target)
                 loss_feature_dist_target = torch.mean(min_feature_dist_target)
-                print(f'proto dist {self.epoch}: {loss_proto_dist_source} + {loss_proto_dist_target}')
-                print(f'feat dist {self.epoch}: {loss_feature_dist_source} + {loss_feature_dist_target}')
 
                 if self.epoch < self.t_recon_decay_epochs:
                     weight_recon_target_adj = self.weight_recon_target + (float)(self.t_recon_decay_epochs - self.epochs)/self.t_recon_decay_epochs *self.t_recon_decay_weight
@@ -188,13 +181,11 @@ class CycleModel(nn.Module):
                 # 9. Loss on fake data from transitioning source training data to target domain
                 prediction_transition = self.predict_cross_domain(xb_source)
                 loss_class_transition, acc_transition = self.loss_pred(prediction_transition, yb_source)
-                print(f'transition loss/acc {self.epoch}: {loss_class_transition} + {acc_transition}')
 
                 # 10. Loss on prototype alignment
                 # loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.target_model.proto_layer.prototypes)
                 loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))+\
                                    self.loss_recon(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
-                print(f'prototype alignment loss {self.epoch}: {loss_proto_align}')
 
                 loss_transition = self.weight_class_transition * loss_class_transition +\
                                   self.weight_proto_align * loss_proto_align
@@ -203,7 +194,26 @@ class CycleModel(nn.Module):
                 self.optim_transition.step()
                 self.optim_transition.zero_grad()
 
+            print(f'\ntransfer source {self.epoch}: {loss_recon_source}')
+            print(f'transfer target {self.epoch}: {loss_recon_target}')
+            print(f'autoencode {self.epoch}: {loss_autoencode_source} + {loss_autoencode_target}')
+            print(f'class loss {self.epoch}: {loss_class_source} + {loss_class_target}')
+            print(f'class acc {self.epoch}: {acc_source} + {acc_target}')
+            print(f'proto dist {self.epoch}: {loss_proto_dist_source} + {loss_proto_dist_target}')
+            print(f'feat dist {self.epoch}: {loss_feature_dist_source} + {loss_feature_dist_target}')
+            print(f'transition loss/acc {self.epoch}: {loss_class_transition} + {acc_transition}')
+            print(f'prototype alignment loss {self.epoch}: {loss_proto_align}')
             self.epoch += 1
+
+            if visualize_10_epochs:
+                if model_name:
+                    cm.visualize_prototypes(f"{model_name}_proto_e{self.epoch}.jpg")
+                    cm.visualize_samples(source_train_dl, target_train_dl, f"{model_name}_sample_e{self.epoch}.jpg")
+                    cm.visualize_latent_2d(source_train_dl, target_train_dl, root_savepath=f"{model_name}_e{self.epoch}", batch_multiple=5)
+                else:
+                    cm.visualize_prototypes()
+                    cm.visualize_samples(source_train_dl, target_train_dl)
+                    cm.visualize_latent_2d(source_train_dl, target_train_dl, batch_multiple=5)
 
     def loss_pred(self, prediction, label):
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
