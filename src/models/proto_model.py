@@ -37,6 +37,7 @@ class ProtoModel(nn.Module):
         self.num_prototypes = funcy.get_in(self.config, ['num_prototypes'], None)
         self.num_classes = funcy.get_in(self.config, ['num_classes'], None)
         self.use_convolution = funcy.get_in(self.config, ['use_convolution'], None)
+        self.mnist_conv = funcy.get_in(self.config, ['mnist_conv'], None)
         self.proto_dropout = funcy.get_in(self.config, ['proto_dropout'], 0.75)
 
         # Loss related parameters
@@ -48,7 +49,9 @@ class ProtoModel(nn.Module):
         # data for storing models
         self.epoch = 0
 
-        if self.use_convolution:
+        if self.mnist_conv:
+            self.build_parts_mnist()
+        elif self.use_convolution:
             self.build_parts_alt_conv()
         else:
             self.build_parts()
@@ -208,6 +211,52 @@ class ProtoModel(nn.Module):
             nn.ReLU(),
 
             nn.ConvTranspose2d(64, 32, 3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(32, 1, 3, stride=2, padding=1, output_padding=1),
+            nn.Sigmoid(),
+
+            Lambda(lambda x: x.view(x.size(0), -1)),
+        )
+
+        # summary(self.encoder, (64, 28, 28, 1))
+        # summary(self.decoder, (64, self.latent_dim))
+
+        # ProtoLayer
+        self.proto_layer = ProtoLayer(self.num_prototypes, self.latent_dim)
+
+        # Predictor
+        self.predictor = Predictor(self.num_prototypes, None, self.num_classes, self.proto_dropout)
+
+    def build_parts_mnist(self):
+        # Encoder
+        self.encoder = nn.Sequential(
+            Lambda(preprocess_conv),
+            nn.Conv2d(1, 32, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+
+            nn.Conv2d(32, 32, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+
+            nn.Conv2d(32, 10, 3, stride=2, padding=1),
+            nn.Sigmoid(),
+
+            Lambda(lambda x: x.view(x.size(0), -1)),
+            nn.Linear(160, self.latent_dim)
+        )
+
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.Linear(self.latent_dim, 160),
+            nn.ReLU(),
+
+            Lambda(lambda x: x.view(x.size(0), 10, 4, 4)),
+
+            nn.ConvTranspose2d(10, 32, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 32, 3, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
 
             nn.ConvTranspose2d(32, 1, 3, stride=2, padding=1, output_padding=1),

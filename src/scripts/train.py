@@ -17,6 +17,7 @@ proto_model_config = {
     "hidden_activations": [nn.Sigmoid(), None],
     "recon_activation": nn.Sigmoid(),
 
+    "mnist_conv": True,
     "use_convolution": True,
     "conv_input_channels": 1,
     "conv_hidden_layers": [128, 128],
@@ -28,10 +29,12 @@ NUM_EPOCHS = 20
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 
-def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_conv=False,\
+def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_conv=False, mnist_conv=False,\
     train_new=True, save_model=True, dataset="mnist"):
 
-    if override_conv:
+    if mnist_conv:
+        proto_model_config['mnist_conv'] = True
+    elif override_conv:
         proto_model_config['use_convolution'] = True
 
     # load test data
@@ -66,4 +69,4 @@ def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, override_con
         #new_model.fit(10, train_dl)
 
 if __name__ == "__main__": 
-    train("svhn_conv_30", train_new=True, save_model=True, dataset="svhn")
+    train("mnist_full_conv_30", train_new=True, save_model=True, dataset="mnist", mnist_conv=True)
