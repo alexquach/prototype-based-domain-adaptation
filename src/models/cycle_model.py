@@ -207,13 +207,13 @@ class CycleModel(nn.Module):
 
             if visualize_10_epochs:
                 if model_name:
-                    cm.visualize_prototypes(f"{model_name}_proto_e{self.epoch}.jpg")
-                    cm.visualize_samples(source_train_dl, target_train_dl, f"{model_name}_sample_e{self.epoch}.jpg")
-                    cm.visualize_latent_2d(source_train_dl, target_train_dl, root_savepath=f"{model_name}_e{self.epoch}", batch_multiple=5)
+                    self.visualize_prototypes(f"{model_name}_proto_e{self.epoch}.jpg")
+                    self.visualize_samples(source_train_dl, target_train_dl, f"{model_name}_sample_e{self.epoch}.jpg")
+                    self.visualize_latent_2d(source_train_dl, target_train_dl, root_savepath=f"{model_name}_e{self.epoch}", batch_multiple=5)
                 else:
-                    cm.visualize_prototypes()
-                    cm.visualize_samples(source_train_dl, target_train_dl)
-                    cm.visualize_latent_2d(source_train_dl, target_train_dl, batch_multiple=5)
+                    self.visualize_prototypes()
+                    self.visualize_samples(source_train_dl, target_train_dl)
+                    self.visualize_latent_2d(source_train_dl, target_train_dl, batch_multiple=5)
 
     def loss_pred(self, prediction, label):
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
