@@ -59,15 +59,19 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
     cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights, nonlinear_transition=nonlinear_transition, freeze_source=freeze_source, t_recon_decay_weight=t_recon_decay_weight, t_recon_decay_epochs=t_recon_decay_epochs)
 
     if train_new:
-        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl, visualize_10_epochs)
+        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl, visualize_10_epochs, model_name)
     else:
         cm = CycleModel.load_model(f"{model_name}.pth", model_1, model_2, epochs=epochs)
-        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl, visualize_10_epochs)
+        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl, visualize_10_epochs, model_name)
 
+    res = cm.evaluate(mnist_test_dl, lambda x: cm.source_model(x)[2])
+    print("mnist: ", res)
     res = cm.evaluate(svhn_test_dl)
-    print(res)
-    res = cm.evaluate(mnist_test_dl, cm.source_model)
-    print(res)
+    print("svhn: ", res)
+    res = cm.evaluate(mnist_test_dl, cm.predict_cross_domain_from_source)
+    print("mnist -> svhn: ", res)
+    res = cm.evaluate(svhn_test_dl, cm.predict_cross_domain_from_target)
+    print("svhn -> mnist: ", res)
 
     cm.visualize_prototypes(f"{model_name}_proto.jpg")
     cm.visualize_samples(mnist_train_dl, svhn_train_dl, f"{model_name}_sample.jpg")

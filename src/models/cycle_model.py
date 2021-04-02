@@ -72,6 +72,23 @@ class CycleModel(nn.Module):
         self.to(self.dev)
 
     def forward_base(self, xb_1, model_1, model_2, transition, inverse_transition):
+        """ 
+
+        Args:
+            xb_1: input batch
+            model_1: source model
+            model_2: target model
+            transition: transition layer between S -> T
+            inverse_transition: transition layer between T -> S
+
+        Returns:
+            1. xb_1: The input batch
+            2. transfer_recon_1: S -> T -> S reconstruction
+            3. prediction_1: straight prediction from source model
+            4. min_proto_dist_1: minimum prototype distance for batch
+            5. min_feature_dist_1: min feature distance for batch
+            6. transfer_recon_2: S -> T reconstructino
+        """
         latent_1 = model_1.encoder(xb_1)
         latent_2 = transition(latent_1)
 
@@ -89,7 +106,7 @@ class CycleModel(nn.Module):
         transfer_latent_1 = inverse_transition(transfer_latent_2)
         transfer_recon_1 = model_1.decoder(transfer_latent_1)
 
-        return xb_1, transfer_recon_1, prediction_1, min_proto_dist_1, min_feature_dist_1
+        return xb_1, transfer_recon_1, prediction_1, min_proto_dist_1, min_feature_dist_1, transfer_recon_2
 
     def forward_source(self, xb_source):
         return self.forward_base(xb_source, self.source_model, self.target_model, self.transition_model, self.inverse_transition_model)
@@ -97,16 +114,22 @@ class CycleModel(nn.Module):
     def forward_target(self, xb_target):
         return self.forward_base(xb_target, self.target_model, self.source_model, self.inverse_transition_model, self.transition_model)
 
-    def predict_cross_domain(self, xb_source):
+    def predict_cross_domain_base(self, xb, model_1, model_2, transition):
         """ Takes in source data and converts it to target prediction via transition model + predictor """
-        latent_source = self.source_model.encoder(xb_source)
-        latent_target = self.transition_model(latent_source)
-        transfer_recon_target = self.target_model.decoder(latent_target)
-        transfer_latent_target = self.target_model.encoder(transfer_recon_target)
-        proto_dist_target, _ = self.target_model.proto_layer(transfer_latent_target)
-        prediction = self.target_model.predictor(proto_dist_target)
+        latent_1 = model_1.encoder(xb)
+        latent_2 = transition(latent_1)
+        transfer_recon_2 = model_2.decoder(latent_2)
+        transfer_latent_2 = model_2.encoder(transfer_recon_2)
+        proto_dist_2, _ = model_2.proto_layer(transfer_latent_2)
+        prediction = model_2.predictor(proto_dist_2)
 
         return prediction
+
+    def predict_cross_domain_from_source(self, xb_source):
+        return self.predict_cross_domain_base(xb_source, self.source_model, self.target_model, self.transition_model)
+
+    def predict_cross_domain_from_target(self, xb_target):
+        return self.predict_cross_domain_base(xb_target, self.target_model, self.source_model, self.inverse_transition_model)
 
 
     def autoencode(self, xb_source, xb_target):
@@ -135,8 +158,8 @@ class CycleModel(nn.Module):
                 yb_target = yb_target.to(self.dev)
 
                 # Forward pass for all components
-                _, recon_source, prediction_source, min_proto_dist_source, min_feature_dist_source = self.forward_source(xb_source)
-                _, recon_target, prediction_target, min_proto_dist_target, min_feature_dist_target = self.forward_target(xb_target)
+                _, recon_source, prediction_source, min_proto_dist_source, min_feature_dist_source, _ = self.forward_source(xb_source)
+                _, recon_target, prediction_target, min_proto_dist_target, min_feature_dist_target, _ = self.forward_target(xb_target)
 
                 # 1. Loss on transfered source
                 loss_recon_source = self.loss_recon(xb_source, recon_source)
@@ -179,7 +202,7 @@ class CycleModel(nn.Module):
                 self.optim.zero_grad()
                 
                 # 9. Loss on fake data from transitioning source training data to target domain
-                prediction_transition = self.predict_cross_domain(xb_source)
+                prediction_transition = self.predict_cross_domain_from_source(xb_source)
                 loss_class_transition, acc_transition = self.loss_pred(prediction_transition, yb_source)
 
                 # 10. Loss on prototype alignment
@@ -238,7 +261,7 @@ class CycleModel(nn.Module):
                 yb = yb.to(self.dev)
 
                 if eval_model:
-                    input_, recon_image, prediction, _, _ = eval_model(xb)
+                    prediction = eval_model(xb)
                 else:
                     input_, recon_image, prediction, _, _ = self.target_model(xb)
 
@@ -321,10 +344,10 @@ class CycleModel(nn.Module):
         recon_source = self.source_model.decoder(latent_source)
         recon_target = self.target_model.decoder(latent_target)
 
-        _, recon_transfer_source, _, _, _ = self.forward_source(xb_source)
-        _, recon_transfer_target, _, _, _ = self.forward_target(xb_target)
+        _, recon_transfer_source, _, _, _, recon_transfer_intermediate_source = self.forward_source(xb_source)
+        _, recon_transfer_target, _, _, _, recon_transfer_intermediate_target = self.forward_target(xb_target)
 
-        plot_rows_of_images([xb_source, xb_target, recon_source, recon_target, recon_transfer_source, recon_transfer_target], path_name)
+        plot_rows_of_images([xb_source, xb_target, recon_source, recon_target, recon_transfer_source, recon_transfer_target], recon_transfer_intermediate_source, recon_transfer_intermediate_target, path_name)
 
     def visualize_latent_2d(self, source_dl, target_dl, root_savepath=None, batch_multiple=1):
         """ 
@@ -338,6 +361,7 @@ class CycleModel(nn.Module):
             4. Transition Source (Target -> Source) Prototypes
             5. Recon Source (S -> T -> S) Prototypes
             6. Recon Target (T -> S -> T) Prototypes
+            7. 
         """
         proto_mult = int(self.source_model.num_prototypes / self.source_model.num_classes)
 
@@ -383,9 +407,11 @@ class CycleModel(nn.Module):
                 #plot_latent_pca(proto_to_plot[i*2 +j], range(10), ax=new_ax, marker='x')
                 plot_latent_tsne([proto_to_plot[i*2 +j], sample_to_plot[i*2 + j]], [list(range(10)) * proto_mult, sample_labels[i*2 +j]], ax=new_ax, markers=['x', 'o'], sizes=[300, 1], fig=fig)
 
+        # plots proto + samples for: Source, transition source
         new_ax = plt.subplot(gs[3, 0])
         plot_latent_tsne([source, xb_source, transition_source, xb_transition_source], [list(range(10)) * proto_mult, yb_source, list(range(10)) * proto_mult, yb_source], ax=new_ax, markers=['x', '|', '+', '_'], sizes=[300, 5, 300, 5], fig=fig)
 
+        # plots proto + samples for: Target, transition target
         new_ax = plt.subplot(gs[3, 1])
         plot_latent_tsne([target, xb_target, transition_target, xb_transition_target], [list(range(10)) * proto_mult, yb_target, list(range(10)) * proto_mult, yb_target], ax=new_ax, markers=['x', '|', '+', '_'], sizes=[300, 5, 300, 5], fig=fig)
 
