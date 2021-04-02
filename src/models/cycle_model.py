@@ -119,6 +119,7 @@ class CycleModel(nn.Module):
         latent_1 = model_1.encoder(xb)
         latent_2 = transition(latent_1)
         transfer_recon_2 = model_2.decoder(latent_2)
+
         transfer_latent_2 = model_2.encoder(transfer_recon_2)
         proto_dist_2, _ = model_2.proto_layer(transfer_latent_2)
         prediction = model_2.predictor(proto_dist_2)
@@ -347,7 +348,7 @@ class CycleModel(nn.Module):
         _, recon_transfer_source, _, _, _, recon_transfer_intermediate_source = self.forward_source(xb_source)
         _, recon_transfer_target, _, _, _, recon_transfer_intermediate_target = self.forward_target(xb_target)
 
-        plot_rows_of_images([xb_source, xb_target, recon_source, recon_target, recon_transfer_source, recon_transfer_target], recon_transfer_intermediate_source, recon_transfer_intermediate_target, path_name)
+        plot_rows_of_images([xb_source, xb_target, recon_source, recon_target, recon_transfer_source, recon_transfer_target, recon_transfer_intermediate_source, recon_transfer_intermediate_target], path_name)
 
     def visualize_latent_2d(self, source_dl, target_dl, root_savepath=None, batch_multiple=1):
         """ 
