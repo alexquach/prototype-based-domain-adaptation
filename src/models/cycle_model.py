@@ -240,6 +240,10 @@ class CycleModel(nn.Module):
                     self.visualize_prototypes()
                     self.visualize_samples(source_train_dl, target_train_dl)
                     self.visualize_latent_2d(source_train_dl, target_train_dl, batch_multiple=5)
+                res = self.evaluate(source_train_dl, lambda x: self.source_model(x)[2])
+                print("mnist: ", res)
+                res = self.evaluate(target_train_dl)
+                print("svhn: ", res)
 
     def compute_pairwise_dist(self, input1, input2):
         source_squared = ProtoLayer.get_norms(input1).view(-1, 1)
@@ -250,20 +254,33 @@ class CycleModel(nn.Module):
 
     def group_proto_loss(self):
         """ each prototype in source/target domain is close to at least one corresponding class prototypes in other domain """
+        num_protos = self.source_model.num_prototypes
+        num_classes = self.source_model.num_classes
 
-        source_to_target = self.compute_pairwise_dist(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))
-        source_to_target = self.compute_pairwise_dist(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
+        # source_to_target = self.compute_pairwise_dist(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))
+        # source_to_target = self.compute_pairwise_dist(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
 
         # get the closest proto
-        close_source_proto = torch.min(source_to_target, axis=0)
-        close_target_proto = torch.min(source_to_target, axis=0)
+        # close_source_proto = torch.min(source_to_target, axis=0)
+        # close_target_proto = torch.min(source_to_target, axis=0)
         
         # (optional) clustering
         # might need to mult by mask for differentiability
-        #same_category_source = close_source_proto.view(close_source_proto.shape[0], -1, num_classes).transpose(1, 2)
+        #same_category_source = close_source_proto.view(close_source_proto.shape[0], -1, num_classes).transpose(1, 2)   
+        proto_losses_source = []
+        proto_losses_target = []
+        for proto in range(num_classes):
+            a = self.compute_pairwise_dist(self.source_model.proto_layer.prototypes[proto::num_classes], self.inverse_transition_model(self.target_model.proto_layer.prototypes[proto::num_classes])).to(self.dev)
+            b = self.compute_pairwise_dist(self.target_model.proto_layer.prototypes[proto::num_classes], self.transition_model(self.source_model.proto_layer.prototypes[proto::num_classes])).to(self.dev)
+
+            proto_losses_source.append(torch.mean(a.min(axis=1).values))
+            proto_losses_target.append(torch.mean(a.min(axis=1).values))
+
+        proto_losses_source = torch.tensor(proto_losses_source).to(self.dev)
+        proto_losses_target = torch.tensor(proto_losses_target).to(self.dev)
 
         # use diff loss
-        return torch.mean(close_source_proto.values) + torch.mean(close_target_proto.values)
+        return torch.mean(proto_losses_source) + torch.mean(proto_losses_target)
 
     def loss_pred(self, prediction, label):
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
