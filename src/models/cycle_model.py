@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
 from models.proto_model import ProtoModel
+from models.proto_layer import ProtoLayer
 from utils.plotting import plot_rows_of_images, plot_latent_tsne, plot_latent_pca
 
 class Lambda(nn.Module):
@@ -208,8 +209,9 @@ class CycleModel(nn.Module):
 
                 # 10. Loss on prototype alignment
                 # loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.target_model.proto_layer.prototypes)
-                loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))+\
-                                   self.loss_recon(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
+                # loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))+\
+                #                    self.loss_recon(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
+                loss_proto_align = self.group_proto_loss()
 
                 loss_transition = self.weight_class_transition * loss_class_transition +\
                                   self.weight_proto_align * loss_proto_align
@@ -238,6 +240,30 @@ class CycleModel(nn.Module):
                     self.visualize_prototypes()
                     self.visualize_samples(source_train_dl, target_train_dl)
                     self.visualize_latent_2d(source_train_dl, target_train_dl, batch_multiple=5)
+
+    def compute_pairwise_dist(self, input1, input2):
+        source_squared = ProtoLayer.get_norms(input1).view(-1, 1)
+        target_squared = ProtoLayer.get_norms(input2).view(1, -1)
+        source_to_target = source_squared + target_squared - 2 * torch.matmul(input1, torch.transpose(input2, 0, 1))
+
+        return source_to_target
+
+    def group_proto_loss(self):
+        """ each prototype in source/target domain is close to at least one corresponding class prototypes in other domain """
+
+        source_to_target = self.compute_pairwise_dist(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))
+        source_to_target = self.compute_pairwise_dist(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
+
+        # get the closest proto
+        close_source_proto = torch.min(source_to_target, axis=0)
+        close_target_proto = torch.min(source_to_target, axis=0)
+        
+        # (optional) clustering
+        # might need to mult by mask for differentiability
+        #same_category_source = close_source_proto.view(close_source_proto.shape[0], -1, num_classes).transpose(1, 2)
+
+        # use diff loss
+        return torch.mean(close_source_proto.values) + torch.mean(close_target_proto.values)
 
     def loss_pred(self, prediction, label):
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
