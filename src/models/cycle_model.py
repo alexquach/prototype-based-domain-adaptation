@@ -211,7 +211,8 @@ class CycleModel(nn.Module):
                 # loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.target_model.proto_layer.prototypes)
                 # loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))+\
                 #                    self.loss_recon(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
-                loss_proto_align = self.group_proto_loss()
+                proto_losses_source, proto_losses_target = self.group_proto_loss()
+                loss_proto_align = torch.mean(proto_losses_source) + torch.mean(proto_losses_target)
 
                 loss_transition = self.weight_class_transition * loss_class_transition +\
                                   self.weight_proto_align * loss_proto_align
@@ -220,15 +221,16 @@ class CycleModel(nn.Module):
                 self.optim_transition.step()
                 self.optim_transition.zero_grad()
 
-            print(f'\ntransfer source {self.epoch}: {loss_recon_source}')
-            print(f'transfer target {self.epoch}: {loss_recon_target}')
-            print(f'autoencode {self.epoch}: {loss_autoencode_source} + {loss_autoencode_target}')
-            print(f'class loss {self.epoch}: {loss_class_source} + {loss_class_target}')
+            print(f'\n1.) recon transfer source {self.epoch}: {loss_recon_source}')
+            print(f'2.) recon transfer target {self.epoch}: {loss_recon_target}')
+            print(f'3/4.) autoencode {self.epoch}: {loss_autoencode_source} + {loss_autoencode_target}')
+            print(f'5/6.) class loss {self.epoch}: {loss_class_source} + {loss_class_target}')
             print(f'class acc {self.epoch}: {acc_source} + {acc_target}')
-            print(f'proto dist {self.epoch}: {loss_proto_dist_source} + {loss_proto_dist_target}')
-            print(f'feat dist {self.epoch}: {loss_feature_dist_source} + {loss_feature_dist_target}')
-            print(f'transition loss/acc {self.epoch}: {loss_class_transition} + {acc_transition}')
-            print(f'prototype alignment loss {self.epoch}: {loss_proto_align}')
+            print(f'7.) proto dist (src/tgt) {self.epoch}: {loss_proto_dist_source} + {loss_proto_dist_target}')
+            print(f'8.) feat dist (src/tgt) {self.epoch}: {loss_feature_dist_source} + {loss_feature_dist_target}')
+            print(f'9.) transition (src->tgt) loss/acc {self.epoch}: {loss_class_transition} + {acc_transition}')
+            print(f'10.) prototype alignment loss {self.epoch}: {loss_proto_align}')
+            print(f'prototype loss (src/tgt) {self.epoch}: \n {proto_losses_source} \n {proto_losses_target}')
             self.epoch += 1
 
             if visualize_10_epochs and (self.epoch % 10 == 0):
@@ -280,7 +282,7 @@ class CycleModel(nn.Module):
         proto_losses_target = torch.tensor(proto_losses_target).to(self.dev)
 
         # use diff loss
-        return torch.mean(proto_losses_source) + torch.mean(proto_losses_target)
+        return proto_losses_source, proto_losses_target
 
     def loss_pred(self, prediction, label):
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
