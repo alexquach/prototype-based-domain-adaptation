@@ -269,17 +269,15 @@ class CycleModel(nn.Module):
         # (optional) clustering
         # might need to mult by mask for differentiability
         #same_category_source = close_source_proto.view(close_source_proto.shape[0], -1, num_classes).transpose(1, 2)   
-        proto_losses_source = []
-        proto_losses_target = []
+        proto_losses_source = torch.tensor([]).to(self.dev)
+        proto_losses_target = torch.tensor([]).to(self.dev)
+        
         for proto in range(num_classes):
             a = self.compute_pairwise_dist(self.source_model.proto_layer.prototypes[proto::num_classes], self.inverse_transition_model(self.target_model.proto_layer.prototypes[proto::num_classes])).to(self.dev)
             b = self.compute_pairwise_dist(self.target_model.proto_layer.prototypes[proto::num_classes], self.transition_model(self.source_model.proto_layer.prototypes[proto::num_classes])).to(self.dev)
 
-            proto_losses_source.append(torch.mean(a.min(axis=1).values))
-            proto_losses_target.append(torch.mean(a.min(axis=1).values))
-
-        proto_losses_source = torch.tensor(proto_losses_source).to(self.dev)
-        proto_losses_target = torch.tensor(proto_losses_target).to(self.dev)
+            proto_losses_source = torch.cat([proto_losses_source, torch.mean(a.min(axis=1).values).reshape(1)])
+            proto_losses_target = torch.cat([proto_losses_target, torch.mean(b.min(axis=1).values).reshape(1)])
 
         # use diff loss
         return proto_losses_source, proto_losses_target

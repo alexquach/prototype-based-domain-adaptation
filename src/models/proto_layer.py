@@ -10,7 +10,7 @@ class ProtoLayer(nn.Module):
         #self.prototype_layer = nn.Linear(latent_dim, num_prototypes)
         #self.prototypes = self.prototype_layer.weight
 
-        self.prototypes = nn.Parameter(data=torch.Tensor(num_prototypes, latent_dim))
+        self.prototypes = nn.Parameter(data=torch.Tensor(num_prototypes, latent_dim), requires_grad=True)
         nn.init.uniform_(self.prototypes)
 
     def forward(self, latent_vectors):
