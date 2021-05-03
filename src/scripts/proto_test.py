@@ -19,7 +19,7 @@ class Lambda(nn.Module):
         return self.func(x)
 
 class ProtoCycleModel(nn.Module):
-    def __init__(self, epochs=10, weights=1, latent_dim=256, num_protos=30, num_classes=10,\
+    def __init__(self, epochs=10, weights=1, latent_dim=32, num_protos=30, num_classes=10,\
                  nonlinear_transition=False, freeze_source=False):
         super().__init__()
         self.dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -88,6 +88,7 @@ class ProtoCycleModel(nn.Module):
                 print(f"proto loss: {proto_losses_source} and {proto_losses_target}")
                 print(f"loss_transition: {loss_transition}")
                 print(f'prototype loss (src/tgt) {self.epoch}: \n {proto_losses_source} \n {proto_losses_target}')
+                print(f"prototypes: {self.proto_layer_1.prototypes[0]} \n {self.proto_layer_2.prototypes[0]}")
             self.epoch += 1
 
     def compute_pairwise_dist(self, input1, input2):
@@ -127,7 +128,7 @@ class ProtoCycleModel(nn.Module):
         return F.mse_loss(input_.view(input_.shape[0], -1), recon_image).mean()
 
 def train():
-    pcm = ProtoCycleModel(epochs=10000)
+    pcm = ProtoCycleModel(epochs=10000, weights=1, freeze_source=True, nonlinear_transition=True)
 
     pcm.fit_combined_loss()
 

@@ -143,11 +143,29 @@ class CycleModel(nn.Module):
 
         return xb_source, recon_source, xb_target, recon_target
 
-    def fit_combined_loss(self, source_train_dl, target_train_dl, visualize_10_epochs=False, model_name=None):
+    def pretrain_proto_alignment(self, steps):
+        for i in range(steps)
+            proto_losses_source, proto_losses_target = self.group_proto_loss()
+            loss_proto_align = torch.mean(proto_losses_source) + torch.mean(proto_losses_target)
+
+            loss_transition = self.weight_proto_align * loss_proto_align
+            loss_transition.backward()
+
+            self.optim_transition.step()
+            self.optim_transition.zero_grad()
+
+            if i % 100 == 0:
+                print(f"proto loss: {proto_losses_source} and {proto_losses_target}")
+                print(f"loss_transition: {loss_transition}")
+                print(f'prototype loss (src/tgt) {self.epoch}: \n {proto_losses_source} \n {proto_losses_target}')
+                print(f"prototypes: {self.proto_layer_1.prototypes[0]} \n {self.proto_layer_2.prototypes[0]}")
+
+    def fit_combined_loss(self, source_train_dl, target_train_dl, visualize_10_epochs=False, model_name=None, pretrain_proto_steps=1000):
         """
         Trains using a combined loss for simultaneous optimization
 
         """
+        pretrain_proto_alignment(pretrain_proto_steps)
 
         while self.epoch < self.epochs:
             self.train()
@@ -208,9 +226,6 @@ class CycleModel(nn.Module):
                 loss_class_transition, acc_transition = self.loss_pred(prediction_transition, yb_source)
 
                 # 10. Loss on prototype alignment
-                # loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.target_model.proto_layer.prototypes)
-                # loss_proto_align = self.loss_recon(self.source_model.proto_layer.prototypes, self.inverse_transition_model(self.target_model.proto_layer.prototypes))+\
-                #                    self.loss_recon(self.target_model.proto_layer.prototypes, self.transition_model(self.source_model.proto_layer.prototypes))
                 proto_losses_source, proto_losses_target = self.group_proto_loss()
                 loss_proto_align = torch.mean(proto_losses_source) + torch.mean(proto_losses_target)
 
@@ -271,7 +286,7 @@ class CycleModel(nn.Module):
         #same_category_source = close_source_proto.view(close_source_proto.shape[0], -1, num_classes).transpose(1, 2)   
         proto_losses_source = torch.tensor([]).to(self.dev)
         proto_losses_target = torch.tensor([]).to(self.dev)
-        
+
         for proto in range(num_classes):
             a = self.compute_pairwise_dist(self.source_model.proto_layer.prototypes[proto::num_classes], self.inverse_transition_model(self.target_model.proto_layer.prototypes[proto::num_classes])).to(self.dev)
             b = self.compute_pairwise_dist(self.target_model.proto_layer.prototypes[proto::num_classes], self.transition_model(self.source_model.proto_layer.prototypes[proto::num_classes])).to(self.dev)
