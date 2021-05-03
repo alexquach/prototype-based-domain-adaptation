@@ -144,7 +144,7 @@ class CycleModel(nn.Module):
         return xb_source, recon_source, xb_target, recon_target
 
     def pretrain_proto_alignment(self, steps):
-        for i in range(steps)
+        for i in range(steps):
             proto_losses_source, proto_losses_target = self.group_proto_loss()
             loss_proto_align = torch.mean(proto_losses_source) + torch.mean(proto_losses_target)
 
@@ -158,14 +158,14 @@ class CycleModel(nn.Module):
                 print(f"proto loss: {proto_losses_source} and {proto_losses_target}")
                 print(f"loss_transition: {loss_transition}")
                 print(f'prototype loss (src/tgt) {self.epoch}: \n {proto_losses_source} \n {proto_losses_target}')
-                print(f"prototypes: {self.proto_layer_1.prototypes[0]} \n {self.proto_layer_2.prototypes[0]}")
+                print(f"prototypes: {self.source_model.proto_layer.prototypes[0]} \n {self.target_model.proto_layer.prototypes[0]}")
 
     def fit_combined_loss(self, source_train_dl, target_train_dl, visualize_10_epochs=False, model_name=None, pretrain_proto_steps=1000):
         """
         Trains using a combined loss for simultaneous optimization
 
         """
-        pretrain_proto_alignment(pretrain_proto_steps)
+        self.pretrain_proto_alignment(pretrain_proto_steps)
 
         while self.epoch < self.epochs:
             self.train()
