@@ -59,10 +59,10 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
     cm = CycleModel(model_1, model_2, epochs=epochs, weights=weights, nonlinear_transition=nonlinear_transition, freeze_source=freeze_source, t_recon_decay_weight=t_recon_decay_weight, t_recon_decay_epochs=t_recon_decay_epochs)
 
     if train_new:
-        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl, visualize_epochs=visualize_epochs, model_name, pretrain_proto_steps=pretrain_proto_steps, proto_align_iter_per_step=proto_align_iter_per_step)
+        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl, visualize_epochs, model_name, pretrain_proto_steps=pretrain_proto_steps, proto_align_iter_per_step=proto_align_iter_per_step)
     else:
         cm = CycleModel.load_model(f"{model_name}.pth", model_1, model_2, epochs=epochs)
-        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl, visualize_epochs=visualize_epochs, model_name, proto_align_iter_per_step=proto_align_iter_per_step)
+        cm.fit_combined_loss(mnist_train_dl, svhn_train_dl, visualize_epochs, model_name, proto_align_iter_per_step=proto_align_iter_per_step)
 
     res = cm.evaluate(mnist_test_dl, lambda x: cm.source_model(x)[2])
     print("mnist: ", res)
