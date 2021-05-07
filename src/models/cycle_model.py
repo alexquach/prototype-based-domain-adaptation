@@ -160,7 +160,7 @@ class CycleModel(nn.Module):
                 print(f'prototype loss (src/tgt) {i}: \n {proto_losses_source} \n {proto_losses_target}')
                 print(f"prototypes: {self.source_model.proto_layer.prototypes[0]} \n {self.target_model.proto_layer.prototypes[0]}")
 
-    def fit_combined_loss(self, source_train_dl, target_train_dl, visualize_10_epochs=False, model_name=None, pretrain_proto_steps=1000, proto_align_iter_per_step=100):
+    def fit_combined_loss(self, source_train_dl, target_train_dl, visualize_epochs=10, model_name=None, pretrain_proto_steps=1000, proto_align_iter_per_step=100):
         """
         Trains using a combined loss for simultaneous optimization
 
@@ -254,7 +254,7 @@ class CycleModel(nn.Module):
             print(f'prototype loss (src/tgt) {self.epoch}: \n {proto_losses_source} \n {proto_losses_target}')
             self.epoch += 1
 
-            if visualize_10_epochs and (self.epoch % 10 == 0):
+            if visualize_epochs and (self.epoch % visualize_epochs == 0):
                 if model_name:
                     self.visualize_prototypes(f"{model_name}_proto_e{self.epoch}.jpg")
                     self.visualize_samples(source_train_dl, target_train_dl, f"{model_name}_sample_e{self.epoch}.jpg")
