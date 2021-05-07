@@ -155,12 +155,12 @@ class CycleModel(nn.Module):
             self.optim_transition.zero_grad()
 
             if i % 100 == 0:
-                print(f"proto loss: {proto_losses_source} and {proto_losses_target}")
+                print(f"\nproto loss: {proto_losses_source} and {proto_losses_target}")
                 print(f"loss_transition: {loss_transition}")
-                print(f'prototype loss (src/tgt) {self.epoch}: \n {proto_losses_source} \n {proto_losses_target}')
+                print(f'prototype loss (src/tgt) {i}: \n {proto_losses_source} \n {proto_losses_target}')
                 print(f"prototypes: {self.source_model.proto_layer.prototypes[0]} \n {self.target_model.proto_layer.prototypes[0]}")
 
-    def fit_combined_loss(self, source_train_dl, target_train_dl, visualize_10_epochs=False, model_name=None, pretrain_proto_steps=1000):
+    def fit_combined_loss(self, source_train_dl, target_train_dl, visualize_10_epochs=False, model_name=None, pretrain_proto_steps=1000, proto_align_iter_per_step=100):
         """
         Trains using a combined loss for simultaneous optimization
 
@@ -225,16 +225,22 @@ class CycleModel(nn.Module):
                 prediction_transition = self.predict_cross_domain_from_source(xb_source)
                 loss_class_transition, acc_transition = self.loss_pred(prediction_transition, yb_source)
 
-                # 10. Loss on prototype alignment
-                proto_losses_source, proto_losses_target = self.group_proto_loss()
-                loss_proto_align = torch.mean(proto_losses_source) + torch.mean(proto_losses_target)
-
-                loss_transition = self.weight_class_transition * loss_class_transition +\
-                                  self.weight_proto_align * loss_proto_align
+                loss_transition = self.weight_class_transition * loss_class_transition
                 loss_transition.backward()
 
                 self.optim_transition.step()
                 self.optim_transition.zero_grad()
+
+                # 10. Loss on prototype alignment
+                for i in range(proto_align_iter_per_step+1):
+                    proto_losses_source, proto_losses_target = self.group_proto_loss()
+                    loss_proto_align = torch.mean(proto_losses_source) + torch.mean(proto_losses_target)
+
+                    loss_transition = self.weight_proto_align * loss_proto_align
+                    loss_transition.backward()
+
+                    self.optim_transition.step()
+                    self.optim_transition.zero_grad()
 
             print(f'\n1.) recon transfer source {self.epoch}: {loss_recon_source}')
             print(f'2.) recon transfer target {self.epoch}: {loss_recon_target}')
