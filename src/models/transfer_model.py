@@ -425,7 +425,7 @@ class TransferModel(nn.Module):
         plot_rows_of_images([source_proto, target_proto], path_name)
     
     def visualize_samples(self, source_dl, target_dl, path_name=None):
-        """ Visualizes the prototypes of both source and target models """
+        """ Visualizes the samples of both source and target models """
         xb_source, _ = next(iter(source_dl))
         xb_target, _ = next(iter(target_dl))
         xb_source = xb_source.to(self.dev)[:10]
