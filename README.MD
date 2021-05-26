@@ -7,7 +7,7 @@ Extends the paper:
 ### Models:
 /src/models/proto_model.py
 * Implements a single ProtoModel similar to the paper above
-* 
+
 /src/models/cycle_model.py
 * Implements a pair of ProtoModels (one for the source and one for the target domains) to learn a transition function that maps from the source domain to the target domain
 
