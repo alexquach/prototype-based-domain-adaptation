@@ -31,6 +31,21 @@ LEARNING_RATE = 0.001
 
 def train(model_name, config=proto_model_config, epochs=NUM_EPOCHS, batch_size=BATCH_SIZE, train_frac=1, override_conv=False, mnist_conv=False,\
     train_new=True, save_model=True, dataset="mnist"):
+    """ Trains a single ProtoModel 
+    
+    Params:
+        model_name: name used for saving/loading this cycle model
+        config: configuration for the ProtoModel
+        epochs: epoch number to stop training at (note: this number is also the stopping point for existing models trained for nonzero epoch numbers)
+        batch_size: batch_size
+        train_frac: fraction of training dataset to use
+        override_conv: if true, overrides config to use_convoluition
+        mnist_conv: whether to use convolutional version of mnist
+        train_new (bool): Whether to use an existing model or train a new one
+        save_model (bool): Whether to save the result
+        dataset (str): dataset 'svhn' or 'mnist' to train model on
+
+    """
 
     if mnist_conv:
         proto_model_config['mnist_conv'] = True

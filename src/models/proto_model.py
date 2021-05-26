@@ -1,3 +1,6 @@
+"""
+Basic unit for a Prototype Model
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -71,6 +74,7 @@ class ProtoModel(nn.Module):
         return layers
 
     def build_network(self, layer_dims, activations):
+        """ Build sequential network from layers and activations specified """
         layers = []
 
         for i in range(len(layer_dims) - 1):
@@ -85,6 +89,7 @@ class ProtoModel(nn.Module):
 
 
     def build_parts(self):
+        """ Builds (fully-connected) encoder, decoder, prototype layer, and predictor modules for ProtoModel """
         # Encoder
         encoder_dims = [
             self.config['input_dim'],
@@ -115,6 +120,8 @@ class ProtoModel(nn.Module):
         self.predictor = Predictor(self.num_prototypes, None, self.num_classes, self.proto_dropout)
 
     def build_parts_conv(self):
+        """ Builds (convolutional) encoder, decoder, prototype layer, and predictor modules for ProtoModel """
+        
         # Encoder
         self.encoder_layer1 = nn.Conv2d(1, 32, 3)
         self.encoder_layer2 = nn.Conv2d(32, 64, 3)
@@ -176,6 +183,10 @@ class ProtoModel(nn.Module):
         self.predictor = Predictor(self.num_prototypes, None, self.num_classes, self.proto_dropout)
 
     def build_parts_alt_conv(self):
+        """ Builds components using fully-convolutional layers (without maxPooling layers)
+        Note:
+            This allows for backpropagation for when we interchange the encoders and decoder components of different ProtoModels 
+        """
         # Encoder
         self.encoder = nn.Sequential(
             Lambda(preprocess_conv),
@@ -229,6 +240,7 @@ class ProtoModel(nn.Module):
         self.predictor = Predictor(self.num_prototypes, None, self.num_classes, self.proto_dropout)
 
     def build_parts_mnist(self):
+        """ Builds parts for a convolutional version of ProtoModel for MNIST """
         # Encoder
         self.encoder = nn.Sequential(
             Lambda(preprocess_conv),
@@ -280,6 +292,19 @@ class ProtoModel(nn.Module):
         return torch.min(x, dim=1).values
 
     def forward(self, input_):
+        """ Forward pass 
+        
+        Params:
+            input_: input tensor
+
+        Returns:
+            input_: the input itself, reshaped and sent to device
+            recons: the reconstruction (encoded-decoded)
+            prediction: prediction according to proximity to prototypes
+            min_proto_dist: the minimum distance from samples to prototypes
+            min_feature_dist: the minimum distance from prototypes to samples
+        
+        """
         input_ = input_.to(self.dev)
         input_ = input_.view(-1, self.input_dim)
         latent = self.encoder(input_)
@@ -295,6 +320,22 @@ class ProtoModel(nn.Module):
         return input_, recons, prediction, min_proto_dist, min_feature_dist
 
     def loss_func(self, input_, recons, prediction, min_proto_dist, min_feature_dist, label):
+        """ Custom loss function:
+
+        Composed of:
+            reconstruction loss (comparison of input_ and reconstruction)
+            prediction loss (comparison of predicted value and labels)
+            proto_dist_loss (comaprison of samples with closest prototypes)
+            feature_dist_loss (comaprison of prototypes with closest samples)
+        
+        Returns:
+            overall_loss: overall combined custom loss
+            len(input_): length of input on which the loss was evaluated
+            recons_loss: reconstruction loss
+            pred_loss: prediction loss
+            proto_dist_loss: proto_dist_loss
+            feature_dist_loss: feature_dist_loss
+        """
         recons_loss = F.mse_loss(input_, recons).mean()
         pred_loss = nn.CrossEntropyLoss()(prediction, label).mean()
         proto_dist_loss = torch.mean(min_proto_dist)
@@ -308,6 +349,7 @@ class ProtoModel(nn.Module):
         return overall_loss, len(input_), recons_loss, pred_loss, proto_dist_loss, feature_dist_loss
         
     def fit(self, epochs, train_dl, visualize_sample_name=None):
+        """ Fit model for specificed epochs """
         while self.epoch < epochs:
             self.train()
             for xb, yb in train_dl:
@@ -412,6 +454,7 @@ class ProtoModel(nn.Module):
         return loaded_model
 
     def visualize_sample(self, test_dl, num_samples=10, path_name=None, show=True):
+        """ Visualizes the reconstructions of samples """
         input_, labels = next(iter(test_dl))
         input_ = input_[:num_samples].to(self.dev)
         labels = labels[:num_samples].to(self.dev)
@@ -421,11 +464,13 @@ class ProtoModel(nn.Module):
         plot_rows_of_images([input_, reconstructions], path_name, show=show)
 
     def visualize_latent(self, latent_vector, path_name=None, show=True):
+        """ Visualizes the latent spaces using t-sne of the given latent_vector """
         visualize_latent = self.decoder(latent_vector.to(self.dev))
 
         plot_rows_of_images([visualize_latent], path_name, show=show)
 
     def visualize_prototypes(self, path_name=None, show=True):
+        """ Visualizes the latent space of the prototypes """
         self.visualize_latent(self.proto_layer.prototypes, path_name, show)
     
     # def generate_latent_transition(self, target_model, source_train_dl):

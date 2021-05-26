@@ -39,6 +39,27 @@ def train(model_name, config_1=proto_model_config_1, config_2=proto_model_config
           train_new=True, save_model=True, weights=(1,1,1,1,1,1,.1,.1,1,1), train_frac=1, nonlinear_transition=False,\
           load_source_model=None, load_target_model=None, freeze_source=False, t_recon_decay_weight=1, t_recon_decay_epochs = 10,\
           visualize_epochs=10, pretrain_proto_steps=1000, proto_align_iter_per_step=100):
+    """ Trains a pair of Prototype Models and the mapping function between their latent spaces for domain adaptation
+    Params:
+        model_name: name used for saving/loading this cycle model
+        config_1 (dict): ProtoModel configuration for source model
+        config_2 (dict): ProtoModel configuration for target model
+        epochs: epoch number to stop training at (note: this number is also the stopping point for existing models trained for nonzero epoch numbers)
+        batch_size: batch_size
+        train_new (bool): Whether to use an existing model or train a new one
+        save_model (bool): Whether to save the result
+        weights: weights for the custom loss function
+        train_frac: fraction of the training dataset to use
+        nonlinear_transition (bool): Whether to use a linear or nonlinear transition mapping 
+        load_source_model (str): .pth file to load source model with
+        load_target_model (str): .pth file to load target model with
+        freeze_source (bool): Whether to allow gradient updates to the source model 
+        t_recon_decay_weight: 
+        t_recon_decay_epochs: 
+        visualize_epochs (int): Visualizes the prototypes and samples every X training epochs
+        pretrain_proto_steps: Number of iterations to repeat prototype alignment before the main training loop
+        proto_align_iter_per_step: Number of iterations to repeat prototype alignment loss gradient per epoch
+    """
 
     # load MNIST data
     mnist_train_dl, mnist_test_dl = load_mnist.load_mnist_dataloader(batch_size)
